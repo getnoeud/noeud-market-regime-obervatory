@@ -98,6 +98,29 @@ const BENCHMARK_METRICS = [
   },
 ];
 
+const PERFORMANCE_TABLE_FILTERS = [
+  {
+    title: "Memory A/B collection",
+    scope: "Filters only the paired memory experiment table.",
+    items: [
+      ["Currency pair", "Show experiments for one FX pair."],
+      ["Memory variant", "Compare memory-on or memory-off runs in isolation."],
+      ["Experiment or brief", "Search a full or partial experiment ID or frozen research-brief hash."],
+      ["As of from / to", "Restrict runs by the validation market date. The dates are inclusive."],
+    ],
+  },
+  {
+    title: "Matured outcome tape",
+    scope: "Filters only matured benchmark rows; charts and headline KPIs keep their selected cohort.",
+    items: [
+      ["Currency pair", "Show matured outcomes for one FX pair."],
+      ["Tenor", "Focus on one forecast horizon, from ≤14d through >180d."],
+      ["Evaluated from / to", "Restrict rows by the timestamp when the benchmark was evaluated."],
+      ["Time", "Refine either date boundary when several evaluator runs occurred on the same day."],
+    ],
+  },
+] as const;
+
 export default function HelpPage() {
   return (
     <>
@@ -231,6 +254,48 @@ export default function HelpPage() {
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
               The signal-horizon evaluator waits until that declared date matures, then checks whether the overlay helped during that short window across the multiplier ladder. This is a secondary consistency diagnostic. A three-day signal life does not prove a 90d or 180d forecast; only the corresponding matured fixed-tenor benchmark can do that.
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Using Performance Lab Filters</CardTitle>
+              <CardDescription>
+                Global cohort controls and table filters have intentionally different scopes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Use the controls at the top of Performance Lab when you want to
+                recalculate charts, KPIs, and benchmark summaries. Use the filter
+                bar attached to a table when you only want to find or inspect rows
+                in that table. Table filters combine with AND logic, reset the
+                table to page one, and update its row count and pagination.
+              </p>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {PERFORMANCE_TABLE_FILTERS.map((group) => (
+                  <div key={group.title} className="border p-4">
+                    <h3 className="text-sm font-semibold">{group.title}</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {group.scope}
+                    </p>
+                    <dl className="mt-3 divide-y text-sm">
+                      {group.items.map(([name, body]) => (
+                        <div key={name} className="grid gap-1 py-2.5 sm:grid-cols-[140px_1fr]">
+                          <dt className="font-medium">{name}</dt>
+                          <dd className="text-muted-foreground">{body}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Select <span className="font-medium text-foreground">Clear filters</span>{" "}
+                to restore every row in that table. Sorting is applied after
+                filtering, and the rows-per-page and page controls apply to the
+                filtered result.
+              </p>
             </CardContent>
           </Card>
 

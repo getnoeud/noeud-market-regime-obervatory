@@ -21,8 +21,12 @@ It surfaces, for every supported pair, the full deterministic snapshot (volatili
 | `/pairs/[pair]` | Full per-pair snapshot, charts, and inline validation |
 | `/validation` | Validation overview — status KPIs and runs table |
 | `/validation/[pair]` | Full LLM validation trace for a pair |
+| `/performance` | Performance Lab — benchmark metrics, Memory A/B experiments, and matured outcomes |
 | `/data-health` | Provider runs and ingestion status |
 | `/help` | Methodology — regime bands, metrics, the validation pipeline |
+
+Performance Lab filter behavior and usage examples are documented in
+[`docs/performance-lab-filters.md`](docs/performance-lab-filters.md).
 
 ## Data layer
 

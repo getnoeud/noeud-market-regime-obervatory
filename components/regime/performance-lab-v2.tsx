@@ -2,6 +2,21 @@
 
 import * as React from "react";
 import {
+  type ColumnDef,
+  type SortingState,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
+  ArrowDownIcon,
+  ArrowUpDownIcon,
+  ArrowUpIcon,
+  XIcon,
+} from "lucide-react";
+import {
   CartesianGrid,
   Bar,
   BarChart,
@@ -9,9 +24,21 @@ import {
   YAxis,
 } from "recharts";
 
+import { TablePagination } from "@/components/regime/table-pagination";
+import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePickerNaturalLanguage } from "@/components/ui/date-picker-natural-language";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TimePickerIcon } from "@/components/ui/time-picker-icon";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import type {
@@ -53,6 +80,27 @@ function formatVol(value: number, digits = 2) {
 
 function formatPercent(value: number, digits = 1) {
   return `${(value * 100).toFixed(digits)}%`;
+}
+
+function applyTime(value: Date, time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const next = new Date(value);
+  next.setHours(hours || 0, minutes || 0, 0, 0);
+  return next;
+}
+
+function benchmarkEvaluationTime(row: BenchmarkResult) {
+  const parsed = new Date(
+    row.evaluated_at ||
+      row.evaluation_market_date ||
+      row.maturity_date,
+  );
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function validationAsOfTime(run: ValidationRun) {
+  const parsed = new Date(`${run.as_of_date}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function methodLabel(method: string) {
@@ -104,6 +152,39 @@ function Metric({ label, value, hint }: { label: string; value: string; hint: st
       <p className="mt-1 font-mono text-xl font-semibold">{value}</p>
       <p className="mt-1 truncate text-xs text-muted-foreground" title={hint}>{hint}</p>
     </div>
+  );
+}
+
+function SortHeader({
+  label,
+  onClick,
+  sorted,
+  align = "left",
+}: {
+  label: string;
+  onClick: (event?: unknown) => void;
+  sorted: false | "asc" | "desc";
+  align?: "left" | "right";
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`Sort by ${label}${sorted ? `, currently ${sorted}ending` : ""}`}
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1 text-xs font-medium hover:text-foreground",
+        align === "right" && "ml-auto",
+      )}
+    >
+      {label}
+      {sorted === "asc" ? (
+        <ArrowUpIcon className="size-3.5" />
+      ) : sorted === "desc" ? (
+        <ArrowDownIcon className="size-3.5" />
+      ) : (
+        <ArrowUpDownIcon className="size-3.5 opacity-40" />
+      )}
+    </button>
   );
 }
 
@@ -230,7 +311,92 @@ export function PerformanceLabV2({
     };
   }).filter((row) => row.count > 0);
 
-  const experimentRuns = validations.filter((run) => run.experiment_id);
+  const experimentRuns = React.useMemo(
+    () => validations.filter((run) => run.experiment_id),
+    [validations],
+  );
+  const [experimentPair, setExperimentPair] = React.useState("all");
+  const [experimentVariant, setExperimentVariant] = React.useState("all");
+  const [experimentSearch, setExperimentSearch] = React.useState("");
+  const [experimentFromDate, setExperimentFromDate] = React.useState<Date>();
+  const [experimentToDate, setExperimentToDate] = React.useState<Date>();
+  const experimentPairs = React.useMemo(
+    () => [...new Set(experimentRuns.map((run) => run.pair_code))].sort(),
+    [experimentRuns],
+  );
+  const experimentVariants = React.useMemo(
+    () =>
+      [
+        ...new Set(
+          experimentRuns
+            .map((run) => run.experiment_variant)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ].sort(),
+    [experimentRuns],
+  );
+  const experimentDateBounds = React.useMemo(() => {
+    const dates = experimentRuns
+      .map(validationAsOfTime)
+      .filter((value): value is Date => Boolean(value));
+    if (dates.length === 0) return {};
+    return {
+      min: new Date(Math.min(...dates.map((value) => value.getTime()))),
+      max: new Date(Math.max(...dates.map((value) => value.getTime()))),
+    };
+  }, [experimentRuns]);
+  const experimentRows = React.useMemo(() => {
+    const normalizedSearch = experimentSearch.trim().toLowerCase();
+    const from = experimentFromDate
+      ? new Date(
+          experimentFromDate.getFullYear(),
+          experimentFromDate.getMonth(),
+          experimentFromDate.getDate(),
+        )
+      : null;
+    const to = experimentToDate
+      ? new Date(
+          experimentToDate.getFullYear(),
+          experimentToDate.getMonth(),
+          experimentToDate.getDate(),
+          23,
+          59,
+          59,
+          999,
+        )
+      : null;
+    return experimentRuns.filter((run) => {
+      const asOf = validationAsOfTime(run);
+      const searchable = [
+        run.experiment_id,
+        run.research_brief_hash,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return (
+        (experimentPair === "all" || run.pair_code === experimentPair) &&
+        (experimentVariant === "all" ||
+          run.experiment_variant === experimentVariant) &&
+        (!normalizedSearch || searchable.includes(normalizedSearch)) &&
+        (!from || (asOf && asOf >= from)) &&
+        (!to || (asOf && asOf <= to))
+      );
+    });
+  }, [
+    experimentFromDate,
+    experimentPair,
+    experimentRuns,
+    experimentSearch,
+    experimentToDate,
+    experimentVariant,
+  ]);
+  const hasExperimentFilters =
+    experimentPair !== "all" ||
+    experimentVariant !== "all" ||
+    Boolean(experimentSearch.trim()) ||
+    Boolean(experimentFromDate) ||
+    Boolean(experimentToDate);
   const experimentIds = uniqueCount(experimentRuns, (run) => run.experiment_id ?? run.id);
   const matchedExperiments = new Map<string, Set<string>>();
   for (const run of experimentRuns) {
@@ -276,6 +442,342 @@ export function PerformanceLabV2({
     notApplicable: filteredStatuses.filter((row) => row.status === "not_applicable").length,
     rolled: filtered.filter((row) => row.maturity_rolled).length,
   };
+  const [outcomeSorting, setOutcomeSorting] = React.useState<SortingState>([
+    { id: "maturity_date", desc: true },
+  ]);
+  const [outcomePair, setOutcomePair] = React.useState("all");
+  const [outcomeTenor, setOutcomeTenor] = React.useState("all");
+  const [outcomeFromDate, setOutcomeFromDate] = React.useState<Date>();
+  const [outcomeFromTime, setOutcomeFromTime] = React.useState("00:00");
+  const [outcomeToDate, setOutcomeToDate] = React.useState<Date>();
+  const [outcomeToTime, setOutcomeToTime] = React.useState("23:59");
+  const outcomePairs = React.useMemo(
+    () => [...new Set(filtered.map((row) => row.pair_code))].sort(),
+    [filtered],
+  );
+  const outcomeTenors = React.useMemo(
+    () =>
+      TENORS.filter((key) =>
+        filtered.some((row) => row.tenor_key === key),
+      ),
+    [filtered],
+  );
+  const outcomeDateBounds = React.useMemo(() => {
+    const dates = filtered
+      .map(benchmarkEvaluationTime)
+      .filter((value): value is Date => Boolean(value));
+    if (dates.length === 0) return {};
+    return {
+      min: new Date(Math.min(...dates.map((value) => value.getTime()))),
+      max: new Date(Math.max(...dates.map((value) => value.getTime()))),
+    };
+  }, [filtered]);
+  const outcomeRows = React.useMemo(() => {
+    const from = outcomeFromDate
+      ? applyTime(outcomeFromDate, outcomeFromTime)
+      : null;
+    const to = outcomeToDate ? applyTime(outcomeToDate, outcomeToTime) : null;
+    return filtered.filter((row) => {
+      const evaluatedAt = benchmarkEvaluationTime(row);
+      return (
+        (outcomePair === "all" || row.pair_code === outcomePair) &&
+        (outcomeTenor === "all" || row.tenor_key === outcomeTenor) &&
+        (!from || (evaluatedAt && evaluatedAt >= from)) &&
+        (!to || (evaluatedAt && evaluatedAt <= to))
+      );
+    });
+  }, [
+    filtered,
+    outcomeFromDate,
+    outcomeFromTime,
+    outcomePair,
+    outcomeTenor,
+    outcomeToDate,
+    outcomeToTime,
+  ]);
+  const hasOutcomeFilters =
+    outcomePair !== "all" ||
+    outcomeTenor !== "all" ||
+    Boolean(outcomeFromDate) ||
+    Boolean(outcomeToDate);
+  const outcomeColumns = React.useMemo<ColumnDef<BenchmarkResult>[]>(
+    () => [
+      {
+        accessorKey: "pair_code",
+        header: ({ column }) => (
+          <SortHeader
+            label="Pair"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <span className="font-mono font-medium">{row.original.pair_code}</span>
+        ),
+      },
+      {
+        accessorKey: "tenor_key",
+        header: ({ column }) => (
+          <SortHeader
+            label="Tenor"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => TENOR_LABELS[row.original.tenor_key],
+      },
+      {
+        accessorKey: "maturity_date",
+        header: ({ column }) => (
+          <SortHeader
+            label="Declared"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+      },
+      {
+        id: "evaluation_market_date",
+        accessorFn: (row) => row.evaluation_market_date ?? row.maturity_date,
+        header: ({ column }) => (
+          <SortHeader
+            label="Evaluated"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <>
+            {row.original.evaluation_market_date ?? row.original.maturity_date}
+            {row.original.maturity_rolled ? " · rolled" : ""}
+          </>
+        ),
+      },
+      {
+        accessorKey: "quant_implied_vol",
+        header: ({ column }) => (
+          <SortHeader
+            label="Quant forecast"
+            align="right"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <div className="text-right font-mono">
+            {formatVol(row.original.quant_implied_vol)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "llm_implied_vol",
+        header: ({ column }) => (
+          <SortHeader
+            label="LLM forecast"
+            align="right"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <div className="text-right font-mono">
+            {formatVol(row.original.llm_implied_vol)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "realized_vol",
+        header: ({ column }) => (
+          <SortHeader
+            label="Realized"
+            align="right"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <div className="text-right font-mono">
+            {formatVol(row.original.realized_vol)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "quant_abs_error",
+        header: ({ column }) => (
+          <SortHeader
+            label="Quant error"
+            align="right"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <div className="text-right font-mono">
+            {formatVol(row.original.quant_abs_error)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "llm_abs_error",
+        header: ({ column }) => (
+          <SortHeader
+            label="LLM error"
+            align="right"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <div className="text-right font-mono">
+            {formatVol(row.original.llm_abs_error)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "llm_lift",
+        header: ({ column }) => (
+          <SortHeader
+            label="Lift"
+            align="right"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <div
+            className={cn(
+              "text-right font-mono",
+              row.original.llm_lift >= 0 ? "text-emerald-500" : "text-red-500",
+            )}
+          >
+            {formatVol(row.original.llm_lift)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "llm_direction",
+        header: ({ column }) => (
+          <SortHeader
+            label="Direction"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+      },
+    ],
+    [],
+  );
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const outcomeTable = useReactTable({
+    data: outcomeRows,
+    columns: outcomeColumns,
+    state: { sorting: outcomeSorting },
+    onSortingChange: setOutcomeSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 10 } },
+  });
+  const [experimentSorting, setExperimentSorting] = React.useState<SortingState>([
+    { id: "as_of_date", desc: true },
+  ]);
+  const experimentColumns = React.useMemo<ColumnDef<ValidationRun>[]>(
+    () => [
+      {
+        accessorKey: "experiment_id",
+        header: ({ column }) => (
+          <SortHeader
+            label="Experiment"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.experiment_id}</span>
+        ),
+      },
+      {
+        accessorKey: "pair_code",
+        header: ({ column }) => (
+          <SortHeader
+            label="Pair"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <span className="font-mono font-medium">{row.original.pair_code}</span>
+        ),
+      },
+      {
+        accessorKey: "experiment_variant",
+        header: ({ column }) => (
+          <SortHeader
+            label="Variant"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+      },
+      {
+        accessorKey: "as_of_date",
+        header: ({ column }) => (
+          <SortHeader
+            label="As of"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+      },
+      {
+        accessorKey: "trend_adjustment_pct",
+        header: ({ column }) => (
+          <SortHeader
+            label="Adjustment"
+            align="right"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <div className="text-right font-mono">
+            {formatPercent(row.original.trend_adjustment_pct ?? 0)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "research_brief_hash",
+        header: ({ column }) => (
+          <SortHeader
+            label="Brief hash"
+            sorted={column.getIsSorted()}
+            onClick={column.getToggleSortingHandler()!}
+          />
+        ),
+        cell: ({ row }) => (
+          <span
+            className="block max-w-[200px] truncate font-mono text-xs"
+            title={row.original.research_brief_hash ?? undefined}
+          >
+            {row.original.research_brief_hash}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const experimentTable = useReactTable({
+    data: experimentRows,
+    columns: experimentColumns,
+    state: { sorting: experimentSorting },
+    onSortingChange: setExperimentSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 10 } },
+  });
 
   return (
     <div className="space-y-5">
@@ -389,13 +891,404 @@ export function PerformanceLabV2({
       </section>
 
       <section className="border">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"><div><h2 className="text-base font-semibold">Memory A/B collection</h2><p className="text-sm text-muted-foreground">Same snapshot, model, and frozen research brief; only memory changes</p></div><span className="font-mono text-xs">{completePairs} complete pairs · {experimentIds} experiments</span></div>
-        {experimentRuns.length === 0 ? <p className="px-4 py-8 text-sm text-muted-foreground">The paired experiment begins after the new Prefect deployment is applied.</p> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Experiment</TableHead><TableHead>Pair</TableHead><TableHead>Variant</TableHead><TableHead>As of</TableHead><TableHead>Adjustment</TableHead><TableHead>Brief hash</TableHead></TableRow></TableHeader><TableBody>{experimentRuns.slice(0, 20).map((run) => <TableRow key={run.id}><TableCell className="font-mono text-xs">{run.experiment_id}</TableCell><TableCell className="font-mono">{run.pair_code}</TableCell><TableCell>{run.experiment_variant}</TableCell><TableCell>{run.as_of_date}</TableCell><TableCell className="font-mono">{formatPercent(run.trend_adjustment_pct ?? 0)}</TableCell><TableCell className="max-w-[160px] truncate font-mono text-xs">{run.research_brief_hash}</TableCell></TableRow>)}</TableBody></Table></div>}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 className="text-base font-semibold">Memory A/B collection</h2>
+            <p className="text-sm text-muted-foreground">
+              Same snapshot, model, and frozen research brief; only memory changes
+            </p>
+          </div>
+          <span className="font-mono text-xs text-muted-foreground">
+            {hasExperimentFilters
+              ? `${experimentRows.length} of ${experimentRuns.length} runs`
+              : `${experimentRuns.length} runs`}{" "}
+            · {completePairs} complete pairs · {experimentIds} experiments
+          </span>
+        </div>
+        {experimentRuns.length === 0 ? (
+          <p className="px-4 py-8 text-sm text-muted-foreground">
+            The paired experiment begins after the new Prefect deployment is applied.
+          </p>
+        ) : (
+          <>
+            <div className="border-b bg-muted/15 px-4 py-3">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Memory collection filters
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Find paired experiment runs without changing benchmark charts or KPIs.
+                  </p>
+                </div>
+                {hasExperimentFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setExperimentPair("all");
+                      setExperimentVariant("all");
+                      setExperimentSearch("");
+                      setExperimentFromDate(undefined);
+                      setExperimentToDate(undefined);
+                      experimentTable.setPageIndex(0);
+                    }}
+                  >
+                    <XIcon data-icon="inline-start" />
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+              <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[160px_160px_minmax(220px,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                    Currency pair
+                  </span>
+                  <Select
+                    value={experimentPair}
+                    onValueChange={(value) => {
+                      setExperimentPair(value);
+                      experimentTable.setPageIndex(0);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All pairs" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="all">All pairs</SelectItem>
+                        {experimentPairs.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                    Memory variant
+                  </span>
+                  <Select
+                    value={experimentVariant}
+                    onValueChange={(value) => {
+                      setExperimentVariant(value);
+                      experimentTable.setPageIndex(0);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All variants" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="all">All variants</SelectItem>
+                        {experimentVariants.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value === "memory_on"
+                              ? "Memory on"
+                              : value === "memory_off"
+                                ? "Memory off"
+                                : value}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
+                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                    Experiment or brief
+                  </span>
+                  <Input
+                    value={experimentSearch}
+                    onChange={(event) => {
+                      setExperimentSearch(event.target.value);
+                      experimentTable.setPageIndex(0);
+                    }}
+                    placeholder="Search ID or brief hash"
+                    className="h-10 font-mono text-xs"
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
+                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                    As of from
+                  </span>
+                  <DatePickerNaturalLanguage
+                    value={experimentFromDate}
+                    min={experimentDateBounds.min}
+                    max={experimentToDate ?? experimentDateBounds.max}
+                    onChange={(value) => {
+                      setExperimentFromDate(value);
+                      experimentTable.setPageIndex(0);
+                    }}
+                    placeholder="e.g. two weeks ago"
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
+                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                    As of to
+                  </span>
+                  <DatePickerNaturalLanguage
+                    value={experimentToDate}
+                    min={experimentFromDate ?? experimentDateBounds.min}
+                    max={experimentDateBounds.max}
+                    onChange={(value) => {
+                      setExperimentToDate(value);
+                      experimentTable.setPageIndex(0);
+                    }}
+                    placeholder="e.g. today"
+                  />
+                </div>
+              </div>
+            </div>
+            <Table className="min-w-[880px]">
+              <TableHeader>
+                {experimentTable.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {experimentTable.getRowModel().rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={experimentColumns.length}
+                      className="h-24 text-center text-sm text-muted-foreground"
+                    >
+                      No memory experiment runs match the selected filters.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  experimentTable.getRowModel().rows.map((row) => (
+                    <TableRow key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            <TablePagination
+              table={experimentTable}
+              itemLabel="experiment runs"
+              pageSizeOptions={[10, 20, 50]}
+            />
+          </>
+        )}
       </section>
 
       <section className="border">
-        <div className="border-b px-4 py-3"><h2 className="text-base font-semibold">Matured outcome tape</h2><p className="text-sm text-muted-foreground">Newest canonical outcomes under the selected method</p></div>
-        <div className="overflow-x-auto"><Table className="min-w-[1080px]"><TableHeader><TableRow><TableHead>Pair</TableHead><TableHead>Tenor</TableHead><TableHead>Declared</TableHead><TableHead>Evaluated</TableHead><TableHead className="text-right">Quant</TableHead><TableHead className="text-right">LLM</TableHead><TableHead className="text-right">Realized</TableHead><TableHead className="text-right">Lift</TableHead><TableHead>Direction</TableHead></TableRow></TableHeader><TableBody>{filtered.slice().sort((a, b) => b.maturity_date.localeCompare(a.maturity_date)).slice(0, 40).map((row) => <TableRow key={`${row.id}:${row.benchmark_method_version}`}><TableCell className="font-mono">{row.pair_code}</TableCell><TableCell>{TENOR_LABELS[row.tenor_key]}</TableCell><TableCell>{row.maturity_date}</TableCell><TableCell>{row.evaluation_market_date ?? row.maturity_date}{row.maturity_rolled ? " · rolled" : ""}</TableCell><TableCell className="text-right font-mono">{formatVol(row.quant_implied_vol)}</TableCell><TableCell className="text-right font-mono">{formatVol(row.llm_implied_vol)}</TableCell><TableCell className="text-right font-mono">{formatVol(row.realized_vol)}</TableCell><TableCell className={cn("text-right font-mono", row.llm_lift >= 0 ? "text-emerald-500" : "text-red-500")}>{formatVol(row.llm_lift)}</TableCell><TableCell>{row.llm_direction}</TableCell></TableRow>)}</TableBody></Table></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 className="text-base font-semibold">Matured outcome tape</h2>
+            <p className="text-sm text-muted-foreground">
+              Row-level forecast errors summarized in the chart above
+            </p>
+          </div>
+          <span className="font-mono text-xs text-muted-foreground">
+            {hasOutcomeFilters
+              ? `${outcomeRows.length} of ${filtered.length}`
+              : filtered.length}{" "}
+            outcomes
+          </span>
+        </div>
+        <div className="border-b bg-muted/15 px-4 py-3">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                Outcome table filters
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Narrow the tape without changing the chart cohort.
+              </p>
+            </div>
+            {hasOutcomeFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOutcomePair("all");
+                  setOutcomeTenor("all");
+                  setOutcomeFromDate(undefined);
+                  setOutcomeFromTime("00:00");
+                  setOutcomeToDate(undefined);
+                  setOutcomeToTime("23:59");
+                  outcomeTable.setPageIndex(0);
+                }}
+              >
+                <XIcon data-icon="inline-start" />
+                Clear filters
+              </Button>
+            )}
+          </div>
+          <div className="grid items-end gap-3 md:grid-cols-2 2xl:grid-cols-[160px_140px_minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                Currency pair
+              </span>
+              <Select
+                value={outcomePair}
+                onValueChange={(value) => {
+                  setOutcomePair(value);
+                  outcomeTable.setPageIndex(0);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All pairs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">All pairs</SelectItem>
+                    {outcomePairs.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                Tenor
+              </span>
+              <Select
+                value={outcomeTenor}
+                onValueChange={(value) => {
+                  setOutcomeTenor(value);
+                  outcomeTable.setPageIndex(0);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All tenors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">All tenors</SelectItem>
+                    {outcomeTenors.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {TENOR_LABELS[value]}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                Evaluated from
+              </span>
+              <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
+                <DatePickerNaturalLanguage
+                  value={outcomeFromDate}
+                  min={outcomeDateBounds.min}
+                  max={outcomeToDate ?? outcomeDateBounds.max}
+                  onChange={(value) => {
+                    setOutcomeFromDate(value);
+                    outcomeTable.setPageIndex(0);
+                  }}
+                  placeholder="e.g. two weeks ago"
+                />
+                <TimePickerIcon
+                  value={outcomeFromTime}
+                  onChange={(value) => {
+                    setOutcomeFromTime(value);
+                    outcomeTable.setPageIndex(0);
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                Evaluated to
+              </span>
+              <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
+                <DatePickerNaturalLanguage
+                  value={outcomeToDate}
+                  min={outcomeFromDate ?? outcomeDateBounds.min}
+                  max={outcomeDateBounds.max}
+                  onChange={(value) => {
+                    setOutcomeToDate(value);
+                    outcomeTable.setPageIndex(0);
+                  }}
+                  placeholder="e.g. today"
+                />
+                <TimePickerIcon
+                  value={outcomeToTime}
+                  onChange={(value) => {
+                    setOutcomeToTime(value);
+                    outcomeTable.setPageIndex(0);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <Table className="min-w-[1280px]">
+          <TableHeader>
+            {outcomeTable.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {outcomeTable.getRowModel().rows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={outcomeColumns.length}
+                  className="h-24 text-center text-sm text-muted-foreground"
+                >
+                  No matured outcomes match the selected cohort.
+                </TableCell>
+              </TableRow>
+            ) : (
+              outcomeTable.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination
+          table={outcomeTable}
+          itemLabel="outcomes"
+          pageSizeOptions={[10, 20, 50]}
+        />
       </section>
     </div>
   );
