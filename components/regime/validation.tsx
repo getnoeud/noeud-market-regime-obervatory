@@ -297,9 +297,14 @@ export function SignalHorizonCard({ run }: { run: ValidationRun }) {
               How long the current LLM overlay expects its market read to remain useful
             </CardDescription>
           </div>
-          <span className="rounded-md border bg-muted/40 px-2 py-0.5 font-mono text-xs">
-            {memory.item_count} prior reads
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md border bg-muted/40 px-2 py-0.5 text-xs">
+              Canonical memory
+            </span>
+            <span className="rounded-md border bg-muted/40 px-2 py-0.5 font-mono text-xs">
+              {memory.item_count} prior reads
+            </span>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -346,6 +351,34 @@ export function SignalHorizonCard({ run }: { run: ValidationRun }) {
                   {formatNumber(latestMemory.trend_adjustment_pct * 100, 1)}%
                 </span>
               )}
+              {latestMemory.prior_market_state?.observed_spot_rate != null && (
+                <span className="text-muted-foreground">
+                  Observed{" "}
+                  <span className="font-mono text-foreground">
+                    {formatNumber(
+                      latestMemory.prior_market_state.observed_spot_rate,
+                      4,
+                    )}
+                  </span>
+                  {latestMemory.prior_market_state.regime
+                    ? ` · ${titleCase(latestMemory.prior_market_state.regime)}`
+                    : ""}
+                </span>
+              )}
+              {memory.continuity_summary?.latest_prior_read && (
+                <span
+                  className={cn(
+                    "rounded border px-1.5 py-0.5",
+                    memory.continuity_summary.active_prior_signal
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "bg-muted/40 text-muted-foreground",
+                  )}
+                >
+                  {memory.continuity_summary.active_prior_signal
+                    ? "Prior horizon active"
+                    : "Prior horizon expired"}
+                </span>
+              )}
             </div>
             <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
               {latestMemory.trend_adjustment_rationale ||
@@ -376,16 +409,18 @@ function PriorValidationMemoryCard({ run }: { run: ValidationRun }) {
       <CardHeader>
         <CardTitle className="text-sm">Rolling Memory Context</CardTitle>
         <CardDescription>
-          {memory.item_count} prior same-pair validation reads from the last{" "}
-          {memory.lookback_days} days
+          {memory.item_count} canonical same-pair validation reads from the last{" "}
+          {memory.lookback_days} days. Observed rates are historical context, not price
+          forecasts.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
         <div className="overflow-x-auto">
-          <Table className="min-w-[920px]">
+          <Table className="min-w-[1040px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="px-4">As of</TableHead>
+                <TableHead>Observed state</TableHead>
                 <TableHead>Direction</TableHead>
                 <TableHead className="text-right">Overlay</TableHead>
                 <TableHead className="text-right">Horizon</TableHead>
@@ -397,6 +432,21 @@ function PriorValidationMemoryCard({ run }: { run: ValidationRun }) {
                 <TableRow key={item.validation_run_id || item.as_of_date}>
                   <TableCell className="px-4 font-mono text-xs">
                     {formatDate(item.as_of_date)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-mono text-xs">
+                      {item.prior_market_state?.observed_spot_rate == null
+                        ? "--"
+                        : formatNumber(
+                            item.prior_market_state.observed_spot_rate,
+                            4,
+                          )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {item.prior_market_state?.regime
+                        ? titleCase(item.prior_market_state.regime)
+                        : "Historical provider read"}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {item.trend_adjustment_direction ? (
