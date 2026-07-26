@@ -6,6 +6,9 @@ import {
   getLatestSnapshots as getMockLatestSnapshots,
   getPrices as getMockPrices,
   getProviderRuns as getMockProviderRuns,
+  getMLMultiplierBenchmarks as getMockMLMultiplierBenchmarks,
+  getMLMultiplierModels as getMockMLMultiplierModels,
+  getMLMultiplierPredictions as getMockMLMultiplierPredictions,
   getSignalHorizonBenchmarkResults as getMockSignalHorizonBenchmarkResults,
   getSnapshot as getMockSnapshot,
   getSupportedPairs as getMockSupportedPairs,
@@ -24,6 +27,9 @@ import type {
   RegimeSnapshot,
   ResearchBrief,
   MarketSentiment,
+  MLMultiplierBenchmarkResult,
+  MLMultiplierModel,
+  MLMultiplierPrediction,
   PriorValidationContext,
   PriorValidationContextItem,
   SignalHorizonBenchmarkResult,
@@ -96,6 +102,9 @@ type ValidationRow = {
 
 type BenchmarkRow = BenchmarkResult;
 type SignalHorizonBenchmarkRow = SignalHorizonBenchmarkResult;
+type MLMultiplierModelRow = MLMultiplierModel;
+type MLMultiplierPredictionRow = MLMultiplierPrediction;
+type MLMultiplierBenchmarkRow = MLMultiplierBenchmarkResult;
 
 type SupabaseConfig = {
   url: string;
@@ -786,6 +795,70 @@ export async function getBenchmarkEvaluationStatuses(): Promise<BenchmarkEvaluat
       }));
     },
     () => [],
+  );
+}
+
+export async function getMLMultiplierModels(): Promise<MLMultiplierModel[]> {
+  return withFallback(
+    async () =>
+      supabaseGet<MLMultiplierModelRow>("ml_multiplier_models", {
+        select:
+          "id,model_key,display_name,model_version,status,output_role,artifact_sha256," +
+          "feature_schema,hyperparameters,training_first_date,training_last_as_of_date," +
+          "latest_label_available_on,training_rows,holdout_metrics,rolling_metrics," +
+          "gate_report,sklearn_version,trained_at,activated_at,run_source,created_at",
+        order: "trained_at.desc",
+        limit: 50,
+      }),
+    () => getMockMLMultiplierModels(),
+  );
+}
+
+export async function getMLMultiplierPredictions(): Promise<MLMultiplierPrediction[]> {
+  return withFallback(
+    async () => {
+      const rows = await supabaseGet<MLMultiplierPredictionRow>(
+        "ml_multiplier_predictions",
+        {
+          select:
+            "id,model_id,market_regime_snapshot_id,pair_code,as_of_date,tenor_key," +
+            "horizon_days,quant_multiplier,ml_multiplier,difference_vs_quant,base_vol," +
+            "quant_implied_vol,ml_implied_vol,prediction_status,model_version,output_role," +
+            "is_shadow,evaluation_status,evaluation_reason,evaluated_at,created_at",
+          order: "as_of_date.desc,horizon_days.asc",
+          limit: 5000,
+        },
+      );
+      return rows.map((row) => ({
+        ...row,
+        tenor_key: isTrendAwareTenor(row.tenor_key)
+          ? row.tenor_key
+          : "tenor_le_30d",
+      }));
+    },
+    () => getMockMLMultiplierPredictions(),
+  );
+}
+
+export async function getMLMultiplierBenchmarks(): Promise<MLMultiplierBenchmarkResult[]> {
+  return withFallback(
+    async () => {
+      const rows = await supabaseGet<MLMultiplierBenchmarkRow>(
+        "ml_multiplier_benchmark_results",
+        {
+          select: "*",
+          order: "evaluation_market_date.desc,horizon_days.asc",
+          limit: 5000,
+        },
+      );
+      return rows.map((row) => ({
+        ...row,
+        tenor_key: isTrendAwareTenor(row.tenor_key)
+          ? row.tenor_key
+          : "tenor_le_30d",
+      }));
+    },
+    () => getMockMLMultiplierBenchmarks(),
   );
 }
 

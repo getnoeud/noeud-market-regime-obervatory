@@ -2,6 +2,9 @@
 
 import { EmptyState } from "@/components/regime/primitives";
 import {
+  MLShadowOverviewPanel,
+} from "@/components/regime/ml-multiplier-lab";
+import {
   AccelerationLeaderboard,
   RegimeDistributionChart,
   TrendAwareOverviewHistoryChart,
@@ -16,6 +19,7 @@ import { PairsTable } from "@/components/regime/pairs-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useProviderRuns,
+  useMLMultiplierLab,
   useRegimeHistories,
   useRegimeOverview,
   useValidationRuns,
@@ -27,6 +31,7 @@ export default function OverviewPage() {
   const validationsQuery = useValidations();
   const validationRunsQuery = useValidationRuns();
   const providerRunsQuery = useProviderRuns();
+  const mlMultiplierQuery = useMLMultiplierLab();
   const pairs = query.data?.snapshots.map((snapshot) => snapshot.pair) ?? [];
   const historiesQuery = useRegimeHistories(pairs);
 
@@ -47,6 +52,7 @@ export default function OverviewPage() {
         providerRuns={providerRunsQuery.data ?? []}
         asOf={query.data!.as_of_date}
       />
+      {mlMultiplierQuery.data && <MLShadowOverviewPanel data={mlMultiplierQuery.data} />}
       <SignalHorizonOverviewPanel validations={validationsQuery.data ?? []} />
       <TrendAwareOverviewHistoryChart
         histories={historiesQuery.data ?? {}}

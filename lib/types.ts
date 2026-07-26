@@ -457,6 +457,101 @@ export type BenchmarkEvaluationStatus = {
   evaluated_at: string;
 };
 
+export type MLMultiplierModel = {
+  id: string;
+  model_key: string;
+  display_name: string;
+  model_version: string;
+  status: "shadow_active" | "shadow_candidate" | "shadow_rejected" | "retired";
+  output_role: string;
+  artifact_sha256: string;
+  feature_schema: string[];
+  hyperparameters: Record<string, unknown>;
+  training_first_date: string;
+  training_last_as_of_date: string;
+  latest_label_available_on: string;
+  training_rows: number;
+  holdout_metrics: Record<string, number>;
+  rolling_metrics: Record<string, number>;
+  gate_report: {
+    official_promotion_eligible?: boolean;
+    decision?: string;
+    reason?: string;
+    passed_segments?: number;
+    failed_segments?: number;
+    [key: string]: unknown;
+  };
+  sklearn_version: string;
+  trained_at: string;
+  activated_at: string | null;
+  run_source: string;
+  created_at?: string;
+};
+
+export type MLMultiplierPrediction = {
+  id: string;
+  model_id: string;
+  market_regime_snapshot_id: string;
+  pair_code: string;
+  as_of_date: string;
+  tenor_key: keyof TrendAwareMultiplierMap;
+  horizon_days: number;
+  quant_multiplier: number;
+  ml_multiplier: number | null;
+  difference_vs_quant: number | null;
+  base_vol: number;
+  quant_implied_vol: number;
+  ml_implied_vol: number | null;
+  prediction_status: "predicted" | "invalid" | "missing_model";
+  model_version: string;
+  output_role: string;
+  is_shadow: boolean;
+  evaluation_status: "pending" | "scored" | "invalid";
+  evaluation_reason: string | null;
+  evaluated_at: string | null;
+  created_at: string;
+};
+
+export type MLMultiplierBenchmarkResult = {
+  id: string;
+  prediction_id: string;
+  model_id: string;
+  market_regime_snapshot_id: string;
+  pair_code: string;
+  as_of_date: string;
+  maturity_date: string;
+  evaluation_market_date: string;
+  maturity_rolled: boolean;
+  tenor_key: keyof TrendAwareMultiplierMap;
+  horizon_days: number;
+  benchmark_method_version: string;
+  quant_multiplier: number;
+  ml_multiplier: number;
+  base_vol: number;
+  quant_implied_vol: number;
+  ml_implied_vol: number;
+  realized_vol: number;
+  quant_abs_error: number;
+  ml_abs_error: number;
+  ml_lift: number;
+  quant_qlike: number;
+  ml_qlike: number;
+  quant_undercovered: boolean;
+  ml_undercovered: boolean;
+  observation_count: number;
+  regime: string;
+  model_version: string;
+  scoring_notes: Record<string, unknown> | null;
+  evaluated_at: string;
+  created_at?: string;
+};
+
+export type MLMultiplierLabResponse = {
+  models: MLMultiplierModel[];
+  predictions: MLMultiplierPrediction[];
+  benchmarks: MLMultiplierBenchmarkResult[];
+};
+
 export type ObservatoryDataSourceStatus = {
   source: "supabase" | "mock";
   mode: string;
