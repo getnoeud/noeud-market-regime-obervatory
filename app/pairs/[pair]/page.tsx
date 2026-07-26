@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { EmptyState } from "@/components/regime/primitives";
-import { MLMultiplierPairPanel } from "@/components/regime/ml-multiplier-lab";
 import {
   AccelerationHistoryChart,
   MultiplierChart,
@@ -15,7 +14,6 @@ import {
   TermStructureChart,
   TermStructureHistoryChart,
   SignalHorizonHistoryChart,
-  TrendAwareMultiplierOverlayChart,
   TrendAwareMultiplierHistoryChart,
   VolatilityHistoryChart,
   VolWindowsChart,
@@ -60,6 +58,10 @@ function PairDetail({ code }: { code: string }) {
   const mlMultiplierQuery = useMLMultiplierLab();
   const validations = validationsQuery.data ?? [];
   const latestValidation = validations[0];
+  const mlPredictions =
+    mlMultiplierQuery.data?.predictions.filter(
+      (prediction) => prediction.pair_code === code,
+    ) ?? [];
   const initialRunId = searchParams.get("run");
 
   const onTabChange = (value: string) => {
@@ -100,11 +102,13 @@ function PairDetail({ code }: { code: string }) {
 
             <TabsContent value="snapshot" className="space-y-4">
               <PairAuditSummary snapshot={snapshotQuery.data} />
-              {mlMultiplierQuery.data && (
-                <MLMultiplierPairPanel data={mlMultiplierQuery.data} pair={code} />
+              {latestValidation && (
+                <TrendAwareAdjustmentCard
+                  run={latestValidation}
+                  mlPredictions={mlPredictions}
+                />
               )}
               {latestValidation && <SignalHorizonCard run={latestValidation} />}
-              {latestValidation && <TrendAwareAdjustmentCard run={latestValidation} />}
               <PairSnapshotGrid snapshot={snapshotQuery.data} />
               {latestValidation && (
                 <ValidationSummaryCard
@@ -118,18 +122,10 @@ function PairDetail({ code }: { code: string }) {
             <TabsContent value="charts" className="space-y-4">
               {historyQuery.data && historyQuery.data.length > 0 ? (
                 <>
-                  <TrendAwareMultiplierOverlayChart
-                    snapshot={snapshotQuery.data}
-                    validation={latestValidation}
-                  />
                   <TrendAwareMultiplierHistoryChart
                     history={historyQuery.data}
                     validations={validations}
-                    mlPredictions={
-                      mlMultiplierQuery.data?.predictions.filter(
-                        (prediction) => prediction.pair_code === code,
-                      ) ?? []
-                    }
+                    mlPredictions={mlPredictions}
                     pair={snapshotQuery.data.display_pair}
                   />
                   {validations.length > 0 && (

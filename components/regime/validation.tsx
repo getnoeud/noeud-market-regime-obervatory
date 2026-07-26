@@ -60,7 +60,11 @@ import {
   VALIDATION_RUN_SOURCE_LABELS,
 } from "@/lib/regime";
 import { cn } from "@/lib/utils";
-import type { ValidationResult, ValidationRun } from "@/lib/types";
+import type {
+  MLMultiplierPrediction,
+  ValidationResult,
+  ValidationRun,
+} from "@/lib/types";
 
 /** Pretty-print a string if it is valid JSON, otherwise return it unchanged. */
 function formatMaybeJson(raw: string): string {
@@ -73,40 +77,81 @@ function formatMaybeJson(raw: string): string {
   }
 }
 
-export function TrendAwareAdjustmentCard({ run }: { run: ValidationRun }) {
+export function TrendAwareAdjustmentCard({
+  run,
+  mlPredictions = [],
+}: {
+  run: ValidationRun;
+  mlPredictions?: MLMultiplierPrediction[];
+}) {
   const r = run.result;
   const delta =
     r.recommended_primary_trend_multiplier -
     r.deterministic_primary_trend_multiplier;
   const positive = delta > 0;
   const neutral = Math.abs(delta) < 0.0001;
+  const exactDatePredictions = mlPredictions.filter(
+    (prediction) => prediction.as_of_date === run.as_of_date,
+  );
+  const latestMLDate = mlPredictions.reduce(
+    (latest, prediction) =>
+      prediction.as_of_date > latest ? prediction.as_of_date : latest,
+    "",
+  );
+  const activeMLPredictions = exactDatePredictions.length
+    ? exactDatePredictions
+    : mlPredictions.filter(
+        (prediction) => prediction.as_of_date === latestMLDate,
+      );
+  const mlByTenor = new Map(
+    activeMLPredictions.map((prediction) => [
+      prediction.tenor_key,
+      prediction.ml_multiplier,
+    ]),
+  );
+  const primaryML = mlByTenor.get(r.primary_trend_aware_tenor) ?? null;
   const ladder = MULTIPLIER_BUCKETS.map((bucket) => {
     const deterministic = r.deterministic_trend_aware_multipliers[bucket.key];
     const recommended = r.llm_recommended_trend_aware_multipliers[bucket.key];
     const pct = deterministic === 0 ? 0 : recommended / deterministic - 1;
-    return { ...bucket, deterministic, recommended, pct };
+    const ml = mlByTenor.get(bucket.key) ?? null;
+    const mlPct =
+      ml == null || deterministic === 0 ? null : ml / deterministic - 1;
+    return { ...bucket, deterministic, recommended, pct, ml, mlPct };
   });
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Trend-Aware Multiplier Ladder</CardTitle>
-        <CardDescription>
-          Quant engine versus LLM sentiment overlay across the full tenor strip
-        </CardDescription>
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <div>
+          <CardTitle className="text-sm">Trend-Aware Multiplier Decision Stack</CardTitle>
+          <CardDescription>
+            Official Quant Engine with LLM and independent ML challengers across all tenors
+          </CardDescription>
+        </div>
+        <Link
+          href={`/ml-multiplier?pair=${run.pair_code}`}
+          className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Inspect ML history
+        </Link>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
           <Stat
-            label="Deterministic"
+            label="Quant Engine"
             value={`${formatNumber(r.deterministic_primary_trend_multiplier, 2)}x`}
           />
           <Stat
-            label="LLM recommendation"
+            label="LLM overlay"
             value={`${formatNumber(r.recommended_primary_trend_multiplier, 2)}x`}
           />
           <Stat
-            label="Adjustment"
+            label="Independent ML"
+            value={primaryML == null ? "--" : formatMultiplier(primaryML)}
+          />
+          <Stat
+            label="LLM adjustment"
             value={`${positive ? "+" : ""}${formatNumber(r.trend_adjustment_pct * 100, 1)}%`}
           />
           <Stat
@@ -139,7 +184,7 @@ export function TrendAwareAdjustmentCard({ run }: { run: ValidationRun }) {
           </p>
         </div>
         <div className="overflow-x-auto rounded-lg border">
-          <Table className="min-w-[620px]">
+          <Table className="min-w-[520px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="px-3 font-mono text-[11px] uppercase tracking-wide">
@@ -152,7 +197,10 @@ export function TrendAwareAdjustmentCard({ run }: { run: ValidationRun }) {
                   LLM
                 </TableHead>
                 <TableHead className="px-3 text-right font-mono text-[11px] uppercase tracking-wide">
-                  Overlay
+                  ML
+                </TableHead>
+                <TableHead className="px-3 text-right font-mono text-[11px] uppercase tracking-wide">
+                  Δ vs Quant
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -181,18 +229,36 @@ export function TrendAwareAdjustmentCard({ run }: { run: ValidationRun }) {
                     <TableCell className="px-3 py-2 text-right font-mono text-xs tabular-nums">
                       {formatMultiplier(row.recommended)}
                     </TableCell>
-                    <TableCell
-                      className={cn(
-                        "px-3 py-2 text-right font-mono text-xs tabular-nums",
-                        rowPositive && "text-red-600 dark:text-red-400",
-                        !rowPositive &&
-                          !rowNeutral &&
-                          "text-emerald-600 dark:text-emerald-400",
-                        rowNeutral && "text-muted-foreground",
-                      )}
-                    >
-                      {rowPositive ? "+" : ""}
-                      {formatNumber(row.pct * 100, 1)}%
+                    <TableCell className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                      {row.ml == null ? "--" : formatMultiplier(row.ml)}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-mono text-[11px] tabular-nums">
+                      <div
+                        className={cn(
+                          rowPositive && "text-red-600 dark:text-red-400",
+                          !rowPositive &&
+                            !rowNeutral &&
+                            "text-emerald-600 dark:text-emerald-400",
+                          rowNeutral && "text-muted-foreground",
+                        )}
+                      >
+                        L {rowPositive ? "+" : ""}
+                        {formatNumber(row.pct * 100, 1)}%
+                      </div>
+                      <div
+                        className={cn(
+                          "mt-0.5",
+                          row.mlPct != null &&
+                            Math.abs(row.mlPct) > 0.15 &&
+                            "text-amber-600 dark:text-amber-400",
+                          row.mlPct == null && "text-muted-foreground",
+                        )}
+                      >
+                        M{" "}
+                        {row.mlPct == null
+                          ? "--"
+                          : `${row.mlPct > 0 ? "+" : ""}${formatNumber(row.mlPct * 100, 1)}%`}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
