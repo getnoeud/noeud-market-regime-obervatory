@@ -290,6 +290,7 @@ function priorValidationContextFromPayload(
     const tenor = item.primary_trend_aware_tenor;
     const marketSentiment = item.market_sentiment;
     const direction = item.trend_adjustment_direction;
+    const priorMarketState = asRecord(item.prior_market_state);
     return {
       validation_run_id: asString(item.validation_run_id),
       as_of_date: asString(item.as_of_date),
@@ -329,6 +330,26 @@ function priorValidationContextFromPayload(
           ? item.expected_signal_horizon_days
           : null,
       expected_signal_valid_until: asString(item.expected_signal_valid_until) || null,
+      prior_market_state: {
+        market_data_provider:
+          asString(priorMarketState.market_data_provider) || null,
+        observed_spot_rate:
+          typeof priorMarketState.observed_spot_rate === "number" &&
+          Number.isFinite(priorMarketState.observed_spot_rate)
+            ? priorMarketState.observed_spot_rate
+            : null,
+        prior_close:
+          typeof priorMarketState.prior_close === "number" &&
+          Number.isFinite(priorMarketState.prior_close)
+            ? priorMarketState.prior_close
+            : null,
+        day_change_pct:
+          typeof priorMarketState.day_change_pct === "number" &&
+          Number.isFinite(priorMarketState.day_change_pct)
+            ? priorMarketState.day_change_pct
+            : null,
+        regime: asString(priorMarketState.regime) || null,
+      },
       validation_summary: asString(item.validation_summary),
       trend_aware_validation_summary: asString(item.trend_aware_validation_summary),
       trend_adjustment_rationale: asString(item.trend_adjustment_rationale),
@@ -342,6 +363,9 @@ function priorValidationContextFromPayload(
       })),
     };
   });
+  const continuity = asRecord(record.continuity_summary);
+  const latestPriorRead = asRecord(continuity.latest_prior_read);
+  const latestDirection = latestPriorRead.trend_adjustment_direction;
 
   return {
     memory_mode: asString(record.memory_mode, "none"),
@@ -349,6 +373,20 @@ function priorValidationContextFromPayload(
     current_as_of_date: asString(record.current_as_of_date, currentAsOfDate),
     lookback_days: asNumber(record.lookback_days, 0),
     item_count: asNumber(record.item_count, items.length),
+    selection_policy: asString(record.selection_policy) || undefined,
+    continuity_summary: {
+      active_prior_signal: continuity.active_prior_signal === true,
+      latest_prior_read: Object.keys(latestPriorRead).length
+        ? {
+            as_of_date: asString(latestPriorRead.as_of_date) || null,
+            trend_adjustment_direction: isTrendAdjustmentDirection(latestDirection)
+              ? latestDirection
+              : null,
+            expected_signal_valid_until:
+              asString(latestPriorRead.expected_signal_valid_until) || null,
+          }
+        : null,
+    },
     items,
   };
 }

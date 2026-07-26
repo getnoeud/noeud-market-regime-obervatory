@@ -274,6 +274,13 @@ export type PriorValidationContextItem = {
   recommended_primary_trend_multiplier: number | null;
   expected_signal_horizon_days: number | null;
   expected_signal_valid_until: string | null;
+  prior_market_state?: {
+    market_data_provider: string | null;
+    observed_spot_rate: number | null;
+    prior_close: number | null;
+    day_change_pct: number | null;
+    regime: string | null;
+  };
   validation_summary: string;
   trend_aware_validation_summary: string;
   trend_adjustment_rationale: string;
@@ -293,6 +300,15 @@ export type PriorValidationContext = {
   current_as_of_date: string;
   lookback_days: number;
   item_count: number;
+  selection_policy?: string;
+  continuity_summary?: {
+    active_prior_signal: boolean;
+    latest_prior_read: {
+      as_of_date: string | null;
+      trend_adjustment_direction: TrendAdjustmentDirection | null;
+      expected_signal_valid_until: string | null;
+    } | null;
+  };
   items: PriorValidationContextItem[];
 };
 

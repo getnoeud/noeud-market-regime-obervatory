@@ -516,7 +516,7 @@ function buildValidationRun(snapshot: RegimeSnapshot): ValidationRun {
     ],
     recommended_action: action,
     scorer_model: SCORER_MODELS[0],
-    prompt_version: "market-regime-validation-v1",
+    prompt_version: "market-regime-validation-v5-canonical-continuity-memory",
     research_brief: brief,
   };
 
@@ -540,6 +540,29 @@ function buildValidationRun(snapshot: RegimeSnapshot): ValidationRun {
       recommended_primary_trend_multiplier: recommendedMultipliers.tenor_le_30d,
       expected_signal_horizon_days: Math.max(1, horizonDays - offset + 1),
       expected_signal_valid_until: result.expected_signal_valid_until,
+      prior_market_state: {
+        market_data_provider: "yfinance",
+        observed_spot_rate:
+          snapshot.live_spot_rates.spot_rate == null
+            ? null
+            : Number(
+                (
+                  snapshot.live_spot_rates.spot_rate *
+                  (1 - offset * 0.001)
+                ).toFixed(4),
+              ),
+        prior_close:
+          snapshot.live_spot_rates.prior_close == null
+            ? null
+            : Number(
+                (
+                  snapshot.live_spot_rates.prior_close *
+                  (1 - offset * 0.001)
+                ).toFixed(4),
+              ),
+        day_change_pct: snapshot.live_spot_rates.day_change_pct,
+        regime: snapshot.current_volatility_readings.regime,
+      },
       validation_summary: result.validation_summary,
       trend_aware_validation_summary: result.trend_aware_validation_summary,
       trend_adjustment_rationale: result.trend_adjustment_rationale,
@@ -615,11 +638,21 @@ function buildValidationRun(snapshot: RegimeSnapshot): ValidationRun {
     created_at: `${snapshot.as_of_date}T07:42:00Z`,
     result,
     prior_validation_context: {
-      memory_mode: "rolling_7d_validation_memory_v1",
+      memory_mode: "rolling_prior_validation_memory_v2",
       pair_code: code,
       current_as_of_date: snapshot.as_of_date,
       lookback_days: 7,
       item_count: priorMemoryItems.length,
+      selection_policy:
+        "same pair; canonical non-experiment runs; strictly before current as_of_date; newest run per prior date",
+      continuity_summary: {
+        active_prior_signal: true,
+        latest_prior_read: {
+          as_of_date: priorMemoryItems[0].as_of_date,
+          trend_adjustment_direction: adjustmentDirection,
+          expected_signal_valid_until: result.expected_signal_valid_until,
+        },
+      },
       items: priorMemoryItems,
     },
     independent_scorer_results: independent,
