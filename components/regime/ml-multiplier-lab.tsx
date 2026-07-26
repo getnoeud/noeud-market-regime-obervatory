@@ -7,7 +7,6 @@ import {
   ArrowRightIcon,
   CheckCircle2Icon,
   FlaskConicalIcon,
-  GitCompareArrowsIcon,
   ShieldAlertIcon,
 } from "lucide-react";
 import {
@@ -986,60 +985,6 @@ export function MLShadowOverviewPanel({ data }: { data: MLMultiplierLabResponse 
             Open ML lab <ArrowRightIcon className="size-3.5" />
           </Link>
         </Button>
-      </div>
-    </section>
-  );
-}
-
-export function MLMultiplierPairPanel({
-  data,
-  pair,
-}: {
-  data: MLMultiplierLabResponse;
-  pair: string;
-}) {
-  const rows = data.predictions.filter((row) => row.pair_code === pair);
-  const latest = latestByTenor(rows);
-  if (!latest.length) return null;
-  const maxGap = latest.reduce(
-    (value, row) =>
-      Math.max(
-        value,
-        row.difference_vs_quant == null || row.quant_multiplier === 0
-          ? 0
-          : Math.abs(row.difference_vs_quant / row.quant_multiplier),
-      ),
-    0,
-  );
-  return (
-    <section className="rounded-lg border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-start gap-2.5">
-          <GitCompareArrowsIcon className="mt-0.5 size-4 text-emerald-500" />
-          <div>
-            <h3 className="text-sm font-semibold">Quant / independent ML checkpoint</h3>
-            <p className="text-xs text-muted-foreground">
-              Six-tenor diagnostic for {pair.slice(0, 3)}/{pair.slice(3)} · largest gap{" "}
-              {pct(maxGap)}
-            </p>
-          </div>
-        </div>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/ml-multiplier?pair=${pair}`}>Inspect history</Link>
-        </Button>
-      </div>
-      <div className="mt-4 grid grid-cols-3 gap-3 md:grid-cols-6">
-        {latest.map((row) => (
-          <div key={row.tenor_key} className="border-l pl-3">
-            <div className="text-[11px] text-muted-foreground">{tenorLabel(row.tenor_key)}</div>
-            <div className="mt-1 font-mono text-sm font-semibold">
-              {row.ml_multiplier == null ? "--" : formatMultiplier(row.ml_multiplier)}
-            </div>
-            <div className="text-[11px] text-muted-foreground">
-              Quant {formatMultiplier(row.quant_multiplier)}
-            </div>
-          </div>
-        ))}
       </div>
     </section>
   );
