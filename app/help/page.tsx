@@ -121,6 +121,29 @@ const PERFORMANCE_TABLE_FILTERS = [
   },
 ] as const;
 
+const ML_MULTIPLIER_METRICS = [
+  {
+    name: "Multiplier history",
+    body: "Shows the official Quant Engine and independent ML multiplier on the same date axis for the selected pair and tenor. The distance between the lines is disagreement, not an automatic adjustment.",
+  },
+  {
+    name: "Matured forecast check",
+    body: "Converts each multiplier into implied volatility using the same tenor-matched base volatility, then compares both methods with what later occurred.",
+  },
+  {
+    name: "Rolling MAE",
+    body: "Average absolute forecast error over the latest 12 matured observations. Lower is better. A sustained ML line below Quant is stronger evidence than one isolated win.",
+  },
+  {
+    name: "Rolling undercoverage",
+    body: "Share of the latest 12 forecasts that were below realized volatility. Zero is ideal. A model can lower MAE but still be unsafe if this rate rises materially.",
+  },
+  {
+    name: "Promotion gate",
+    body: "Checks accuracy, undercoverage, and signed bias by year, pair-tenor, and regime-tenor. Aggregate improvement alone cannot promote the model.",
+  },
+] as const;
+
 export default function HelpPage() {
   return (
     <>
@@ -133,6 +156,7 @@ export default function HelpPage() {
           <TabsTrigger value="methodology">Engine Methodology</TabsTrigger>
           <TabsTrigger value="validation">LLM Validation</TabsTrigger>
           <TabsTrigger value="performance">Performance Lab</TabsTrigger>
+          <TabsTrigger value="ml-multiplier">ML Multiplier</TabsTrigger>
         </TabsList>
 
         <TabsContent value="methodology" className="space-y-4">
@@ -321,6 +345,56 @@ export default function HelpPage() {
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
               Prefect runs the fixed-tenor benchmark evaluator weekly by default. The signal-horizon evaluator runs Monday, Wednesday, and Friday at 09:00 Accra time because LLM signal lives can mature in only a few days. Both flows scan stored validation runs, write matured results to their benchmark tables, and leave fresh windows pending until their future prices exist.
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="ml-multiplier" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Independent multiplier shadow</CardTitle>
+              <CardDescription>
+                Noeud Multiplier Direct v1 is monitored beside the Quant Engine and does not
+                overwrite it.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                The model learns a multiplier directly from point-in-time market features. Its
+                target is future realized volatility divided by the tenor-matched base
+                volatility, bounded between 0.80x and 3.00x. The Quant Engine multiplier is not a
+                model feature, target anchor, or fallback.
+              </p>
+              <p>
+                Use the pair and tenor controls at the top of ML Multiplier Lab to update every
+                history and diagnostic chart. The latest ladder always shows all six tenors so
+                the current curve remains visible.
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {ML_MULTIPLIER_METRICS.map((metric) => (
+              <Card key={metric.name}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">{metric.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm leading-relaxed text-muted-foreground">
+                  {metric.body}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Operational meaning</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-relaxed text-muted-foreground">
+              Daily ML inference follows deterministic calculation. Weekly evaluation scores only
+              predictions whose full tenor window has matured. The August model and prompt are
+              frozen, retraining is disabled, and no candidate can promote itself. Finance and ML
+              must review a new immutable version before its role can change.
             </CardContent>
           </Card>
         </TabsContent>

@@ -12,6 +12,7 @@ import {
   LogOutIcon,
   BarChart3Icon,
   SparklesIcon,
+  FlaskConicalIcon,
 } from "lucide-react";
 
 import {
@@ -30,6 +31,7 @@ const NAV_MAIN = [
   { title: "Pair Review", url: "/pairs", icon: GaugeIcon },
   { title: "Validation Runs", url: "/validation", icon: SparklesIcon },
   { title: "Performance Lab", url: "/performance", icon: BarChart3Icon },
+  { title: "ML Multiplier Lab", url: "/ml-multiplier", icon: FlaskConicalIcon },
   { title: "Data Health", url: "/data-health", icon: DatabaseIcon },
 ];
 

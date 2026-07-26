@@ -32,6 +32,9 @@ import type {
   CompositeSignal,
   LLMCallRecord,
   MarketSentiment,
+  MLMultiplierBenchmarkResult,
+  MLMultiplierModel,
+  MLMultiplierPrediction,
   ProviderRun,
   RawPriceObservation,
   RecommendedAction,
@@ -940,6 +943,161 @@ export function getSignalHorizonBenchmarkResults(): SignalHorizonBenchmarkResult
       } satisfies SignalHorizonBenchmarkResult;
     });
   });
+}
+
+const ML_TENORS = [
+  ["tenor_le_14d", 14],
+  ["tenor_le_30d", 30],
+  ["tenor_le_60d", 60],
+  ["tenor_le_90d", 90],
+  ["tenor_le_180d", 180],
+  ["tenor_gt_180d", 252],
+] as const;
+
+export function getMLMultiplierModels(): MLMultiplierModel[] {
+  return [
+    {
+      id: "ml-model-noeud-direct-v1",
+      model_key: "noeud-multiplier-direct",
+      display_name: "Noeud Multiplier Direct v1",
+      model_version: "noeud-multiplier-direct-v1",
+      status: "shadow_active",
+      output_role: "independent_shadow_challenger",
+      artifact_sha256: "089cc8b4697109894de4b76edc80aec61e2de7963bca0f295079198e02618aec",
+      feature_schema: ["base_vol", "trend_90d", "vol_90d", "pair_code", "tenor", "regime"],
+      hyperparameters: {
+        loss: "quantile",
+        alpha: 0.6,
+        n_estimators: 150,
+        max_depth: 2,
+      },
+      training_first_date: "2008-06-27",
+      training_last_as_of_date: "2026-05-21",
+      latest_label_available_on: "2026-06-04",
+      training_rows: 82327,
+      holdout_metrics: {
+        mae_volatility: 0.087618,
+        qlike: -2.54778,
+        undercoverage_rate: 0.3238,
+        mae_reduction_vs_quant_pct: 43.23,
+      },
+      rolling_metrics: {
+        observations: 56847,
+        market_dates: 3225,
+        quant_mae_vol: 0.112662,
+        ml_mae_vol: 0.072782,
+        mae_reduction_pct: 35.398,
+        undercoverage_delta_pp: -4.329,
+      },
+      gate_report: {
+        official_promotion_eligible: false,
+        decision: "fail",
+        passed_segments: 32,
+        failed_segments: 29,
+        reason:
+          "Aggregate accuracy improves, but required stability gates fail in several years and stressed segments.",
+      },
+      sklearn_version: "1.9.0",
+      trained_at: "2026-07-26T08:29:18.843034+00:00",
+      activated_at: "2026-07-26T10:00:00+00:00",
+      run_source: "bundled_release",
+    },
+  ];
+}
+
+export function getMLMultiplierPredictions(): MLMultiplierPrediction[] {
+  const d = dataset();
+  return ["USDGHS", "EURGHS", "GBPGHS"].flatMap((pair, pairIndex) =>
+    d.history[pair].slice(-30).flatMap((point, dateIndex) =>
+      ML_TENORS.map(([tenor, horizon], tenorIndex) => {
+        const quant = point.dynamic_trend_aware_regime_multiplier[tenor];
+        const cycle = Math.sin((dateIndex + tenorIndex * 2 + pairIndex) / 5);
+        const ml = Math.max(0.8, Math.min(3, quant * (0.95 + cycle * 0.055)));
+        const base =
+          tenor === "tenor_le_14d"
+            ? point.volatility_term_structure.tenor_le_30d
+            : point.volatility_term_structure[
+                tenor === "tenor_gt_180d" ? "tenor_gt_180d" : tenor
+              ];
+        return {
+          id: `ml-pred-${pair}-${point.as_of_date}-${tenor}`,
+          model_id: "ml-model-noeud-direct-v1",
+          market_regime_snapshot_id: `snapshot-${pair}-${point.as_of_date}`,
+          pair_code: pair,
+          as_of_date: point.as_of_date,
+          tenor_key: tenor,
+          horizon_days: horizon,
+          quant_multiplier: quant,
+          ml_multiplier: ml,
+          difference_vs_quant: ml - quant,
+          base_vol: base,
+          quant_implied_vol: base * quant,
+          ml_implied_vol: base * ml,
+          prediction_status: "predicted",
+          model_version: "noeud-multiplier-direct-v1",
+          output_role: "independent_shadow_challenger",
+          is_shadow: true,
+          evaluation_status: dateIndex < 12 ? "scored" : "pending",
+          evaluation_reason: null,
+          evaluated_at: dateIndex < 12 ? `${AS_OF}T09:00:00Z` : null,
+          created_at: `${point.as_of_date}T08:16:00Z`,
+        } satisfies MLMultiplierPrediction;
+      }),
+    ),
+  );
+}
+
+export function getMLMultiplierBenchmarks(): MLMultiplierBenchmarkResult[] {
+  return getMLMultiplierPredictions()
+    .filter((prediction) => prediction.evaluation_status === "scored")
+    .map((prediction, index) => {
+      const ml = prediction.ml_multiplier ?? prediction.quant_multiplier;
+      const realized =
+        prediction.base_vol *
+        prediction.quant_multiplier *
+        (0.86 + (index % 7) * 0.045);
+      const quantError = Math.abs(prediction.quant_implied_vol - realized);
+      const mlError = Math.abs((prediction.ml_implied_vol ?? 0) - realized);
+      const maturity = new Date(`${prediction.as_of_date}T00:00:00Z`);
+      maturity.setUTCDate(maturity.getUTCDate() + prediction.horizon_days);
+      const qlike = (forecast: number) => {
+        const fv = Math.max(forecast ** 2, 1e-12);
+        const rv = Math.max(realized ** 2, 1e-12);
+        return Math.log(fv) + rv / fv;
+      };
+      return {
+        id: `ml-bench-${prediction.id}`,
+        prediction_id: prediction.id,
+        model_id: prediction.model_id,
+        market_regime_snapshot_id: prediction.market_regime_snapshot_id,
+        pair_code: prediction.pair_code,
+        as_of_date: prediction.as_of_date,
+        maturity_date: maturity.toISOString().slice(0, 10),
+        evaluation_market_date: maturity.toISOString().slice(0, 10),
+        maturity_rolled: false,
+        tenor_key: prediction.tenor_key,
+        horizon_days: prediction.horizon_days,
+        benchmark_method_version: "ml_tenor_matched_v1",
+        quant_multiplier: prediction.quant_multiplier,
+        ml_multiplier: ml,
+        base_vol: prediction.base_vol,
+        quant_implied_vol: prediction.quant_implied_vol,
+        ml_implied_vol: prediction.ml_implied_vol ?? 0,
+        realized_vol: realized,
+        quant_abs_error: quantError,
+        ml_abs_error: mlError,
+        ml_lift: quantError - mlError,
+        quant_qlike: qlike(prediction.quant_implied_vol),
+        ml_qlike: qlike(prediction.ml_implied_vol ?? 0),
+        quant_undercovered: realized > prediction.quant_implied_vol,
+        ml_undercovered: realized > (prediction.ml_implied_vol ?? 0),
+        observation_count: Math.max(2, Math.round(prediction.horizon_days * 0.72)),
+        regime: "NORMAL",
+        model_version: prediction.model_version,
+        scoring_notes: { fixture: true },
+        evaluated_at: `${AS_OF}T09:00:00Z`,
+      } satisfies MLMultiplierBenchmarkResult;
+    });
 }
 
 export { REGIME_LABELS };

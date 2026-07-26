@@ -13,6 +13,7 @@ import type {
   BenchmarkEvaluationStatus,
   ObservatoryDataSourceStatus,
   SignalHorizonBenchmarkResult,
+  MLMultiplierLabResponse,
   ValidationRun,
 } from "@/lib/types";
 
@@ -193,5 +194,15 @@ export function useDataSourceStatus() {
       return data;
     },
     staleTime: 60_000,
+  });
+}
+
+export function useMLMultiplierLab() {
+  return useQuery({
+    queryKey: ["ml-multiplier-lab"],
+    queryFn: async () => {
+      const { data } = await api.get<MLMultiplierLabResponse>("/ml-multiplier");
+      return data;
+    },
   });
 }
