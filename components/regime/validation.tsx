@@ -93,22 +93,24 @@ export function TrendAwareAdjustmentCard({
   const exactDatePredictions = mlPredictions.filter(
     (prediction) => prediction.as_of_date === run.as_of_date,
   );
-  const latestMLDate = mlPredictions.reduce(
-    (latest, prediction) =>
-      prediction.as_of_date > latest ? prediction.as_of_date : latest,
-    "",
-  );
-  const activeMLPredictions = exactDatePredictions.length
-    ? exactDatePredictions
-    : mlPredictions.filter(
-        (prediction) => prediction.as_of_date === latestMLDate,
-      );
-  const mlByTenor = new Map(
-    activeMLPredictions.map((prediction) => [
-      prediction.tenor_key,
-      prediction.ml_multiplier,
-    ]),
-  );
+  const storedMLContext = run.independent_ml_shadow_context;
+  const mlByTenor = new Map<
+    keyof typeof r.deterministic_trend_aware_multipliers,
+    number | null
+  >();
+  for (const bucket of MULTIPLIER_BUCKETS) {
+    const stored =
+      storedMLContext?.tenors[bucket.key]?.independent_ml_shadow_multiplier;
+    const exact = exactDatePredictions.find(
+      (prediction) => prediction.tenor_key === bucket.key,
+    )?.ml_multiplier;
+    mlByTenor.set(bucket.key, stored ?? exact ?? null);
+  }
+  const mlContextSource = storedMLContext
+    ? `Seen by this LLM run · ${storedMLContext.model_version}`
+    : exactDatePredictions.length
+      ? "Same-date ML exists · not stored in this LLM input"
+      : "Not supplied to this run";
   const primaryML = mlByTenor.get(r.primary_trend_aware_tenor) ?? null;
   const ladder = MULTIPLIER_BUCKETS.map((bucket) => {
     const deterministic = r.deterministic_trend_aware_multipliers[bucket.key];
@@ -128,6 +130,9 @@ export function TrendAwareAdjustmentCard({
           <CardDescription>
             Official Quant Engine with LLM and independent ML challengers across all tenors
           </CardDescription>
+          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+            ML audit source: {mlContextSource}
+          </p>
         </div>
         <Link
           href={`/ml-multiplier?pair=${run.pair_code}`}
@@ -1006,9 +1011,14 @@ export function PairValidations({
       ),
     [runs],
   );
-  const initialSelected = initialRunId
-    ? ordered.find((run) => run.id === initialRunId)
-    : ordered[0];
+  const defaultRun =
+    ordered.find(
+      (run) => run.run_source !== "experiment" && !run.experiment_id,
+    ) ?? ordered[0];
+  const initialSelected =
+    (initialRunId
+      ? ordered.find((run) => run.id === initialRunId)
+      : undefined) ?? defaultRun;
   const [selectedId, setSelectedId] = React.useState<string | undefined>(
     initialSelected?.id,
   );

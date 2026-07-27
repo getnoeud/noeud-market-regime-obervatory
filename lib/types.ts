@@ -243,6 +243,25 @@ export type TrendAwareMultiplierMap = {
   tenor_gt_180d: number;
 };
 
+export type MLShadowTenorComparison = {
+  quant_engine_multiplier: number | null;
+  independent_ml_shadow_multiplier: number | null;
+  difference_vs_quant: number | null;
+  prediction_status: string;
+};
+
+export type MLShadowContext = {
+  role: string;
+  authority: string;
+  official_numeric_layer: string;
+  pair_code: string;
+  as_of_date: string;
+  model_version: string;
+  tenors: Partial<
+    Record<keyof TrendAwareMultiplierMap, MLShadowTenorComparison>
+  >;
+};
+
 export type LLMCitation = {
   url: string;
   title: string;
@@ -373,6 +392,7 @@ export type ValidationRun = {
   llm_recommended_trend_aware_multipliers: TrendAwareMultiplierMap | null;
   created_at: string;
   result: ValidationResult;
+  independent_ml_shadow_context?: MLShadowContext | null;
   prior_validation_context: PriorValidationContext;
   independent_scorer_results: ValidationResult[];
   raw_model_responses: LLMCallRecord[];
