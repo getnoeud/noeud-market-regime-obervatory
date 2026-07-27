@@ -57,7 +57,10 @@ function PairDetail({ code }: { code: string }) {
   const validationsQuery = usePairValidations(code);
   const mlMultiplierQuery = useMLMultiplierLab();
   const validations = validationsQuery.data ?? [];
-  const latestValidation = validations[0];
+  const latestValidation =
+    validations.find(
+      (run) => run.run_source !== "experiment" && !run.experiment_id,
+    ) ?? validations[0];
   const mlPredictions =
     mlMultiplierQuery.data?.predictions.filter(
       (prediction) => prediction.pair_code === code,

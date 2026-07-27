@@ -30,6 +30,8 @@ import type {
   MLMultiplierBenchmarkResult,
   MLMultiplierModel,
   MLMultiplierPrediction,
+  MLShadowContext,
+  MLShadowTenorComparison,
   PriorValidationContext,
   PriorValidationContextItem,
   SignalHorizonBenchmarkResult,
@@ -85,6 +87,7 @@ type ValidationRow = {
   experiment_variant: string | null;
   research_brief_hash: string | null;
   is_shadow: boolean | null;
+  input_payload: JsonRecord | null;
   output_payload: JsonRecord | null;
   rationale: string | null;
   confidence: number | null;
@@ -277,6 +280,45 @@ function trendAwareMapFromRecord(value: unknown, fallback = 0): TrendAwareMultip
     tenor_le_90d: asNumber(record.tenor_le_90d, fallback),
     tenor_le_180d: asNumber(record.tenor_le_180d, fallback),
     tenor_gt_180d: asNumber(record.tenor_gt_180d, fallback),
+  };
+}
+
+function nullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function mlShadowContextFromPayload(value: unknown): MLShadowContext | null {
+  const record = asRecord(value);
+  const tenorPayload = asRecord(record.tenors);
+  const tenors: MLShadowContext["tenors"] = {};
+
+  for (const [key, value] of Object.entries(tenorPayload)) {
+    if (!isTrendAwareTenor(key)) continue;
+    const comparison = asRecord(value);
+    tenors[key] = {
+      quant_engine_multiplier: nullableNumber(
+        comparison.quant_engine_multiplier,
+      ),
+      independent_ml_shadow_multiplier: nullableNumber(
+        comparison.independent_ml_shadow_multiplier,
+      ),
+      difference_vs_quant: nullableNumber(comparison.difference_vs_quant),
+      prediction_status: asString(comparison.prediction_status, "unknown"),
+    } satisfies MLShadowTenorComparison;
+  }
+
+  if (Object.keys(tenors).length === 0) return null;
+  return {
+    role: asString(record.role, "independent_shadow_challenger"),
+    authority: asString(record.authority, "diagnostic_only"),
+    official_numeric_layer: asString(
+      record.official_numeric_layer,
+      "quant_engine",
+    ),
+    pair_code: asString(record.pair_code),
+    as_of_date: asString(record.as_of_date),
+    model_version: asString(record.model_version, "unknown"),
+    tenors,
   };
 }
 
@@ -563,6 +605,8 @@ function validationResultFromPayload(
 }
 
 function validationFromRow(row: ValidationRow): ValidationRun {
+  const input = asRecord(row.input_payload);
+  const deterministicInput = asRecord(input.deterministic_payload);
   const output = asRecord(row.output_payload);
   const briefPayload = output.research_brief ?? asRecord(output.validation_result).research_brief;
   const brief = {
@@ -612,6 +656,9 @@ function validationFromRow(row: ValidationRow): ValidationRun {
       : null,
     created_at: row.created_at,
     result,
+    independent_ml_shadow_context: mlShadowContextFromPayload(
+      deterministicInput.independent_ml_shadow_context,
+    ),
     prior_validation_context: priorContext,
     independent_scorer_results: independent,
     raw_model_responses: asArray(output.raw_model_responses).map(callRecordFromPayload),
