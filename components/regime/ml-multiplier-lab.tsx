@@ -646,8 +646,12 @@ export function MLMultiplierLab({
   );
   const [tenor, setTenor] = React.useState<keyof TrendAwareMultiplierMap>("tenor_le_30d");
   const model = data.models.find((item) => item.status === "shadow_active") ?? data.models[0];
-  const predictions = data.predictions.filter((row) => row.pair_code === pair);
-  const benchmarks = data.benchmarks.filter((row) => row.pair_code === pair);
+  const predictions = data.predictions.filter(
+    (row) => row.pair_code === pair && row.model_version === model?.model_version,
+  );
+  const benchmarks = data.benchmarks.filter(
+    (row) => row.pair_code === pair && row.model_version === model?.model_version,
+  );
   const pairLLMBenchmarks = llmBenchmarks.filter((row) => row.pair_code === pair);
   const latest = latestByTenor(predictions);
   const validationByDate = canonicalValidationByDate(validations, pair);
@@ -934,11 +938,14 @@ export function MLMultiplierLab({
 
 export function MLShadowOverviewPanel({ data }: { data: MLMultiplierLabResponse }) {
   const model = data.models.find((item) => item.status === "shadow_active") ?? data.models[0];
-  const latestDate = data.predictions.reduce(
+  const modelPredictions = data.predictions.filter(
+    (row) => row.model_version === model?.model_version,
+  );
+  const latestDate = modelPredictions.reduce(
     (latest, row) => (row.as_of_date > latest ? row.as_of_date : latest),
     "",
   );
-  const latest = data.predictions.filter((row) => row.as_of_date === latestDate);
+  const latest = modelPredictions.filter((row) => row.as_of_date === latestDate);
   const predicted = latest.filter((row) => row.prediction_status === "predicted");
   const largest = predicted.reduce<MLMultiplierPrediction | null>((current, row) => {
     if (!current) return row;

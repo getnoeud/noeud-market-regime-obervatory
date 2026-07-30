@@ -268,6 +268,13 @@ export function OperationsMetricStrip({
     (run) => !["success", "succeeded", "skipped"].includes(run.status),
   );
   const lastRun = latestRun(providerRuns);
+  const snapshotProviders = Array.from(
+    new Set(snapshots.map((snapshot) => snapshot.market_data_provider)),
+  ).filter(Boolean);
+  const providerLabel =
+    snapshotProviders.length === 0
+      ? "stored provider"
+      : snapshotProviders.join(" + ");
 
   return (
     <section className="space-y-5 border-b pb-5">
@@ -275,8 +282,8 @@ export function OperationsMetricStrip({
         <div>
           <h2 className="text-base font-semibold">Regime Engine Observatory</h2>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Deterministic FX regime snapshots, yfinance provenance, and LLM
-            validation are monitored here as separate audit layers.
+            Deterministic FX regime snapshots, {providerLabel} provenance, and
+            LLM validation are monitored here as separate audit layers.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -338,7 +345,7 @@ export function OperationsMetricStrip({
           value={lastRun?.status ?? "--"}
           hint={
             lastRun
-              ? `${lastRun.pair_code} · ${formatDateTime(lastRun.completed_at)}`
+              ? `${lastRun.provider_name} · ${lastRun.pair_code} · ${formatDateTime(lastRun.completed_at)}`
               : "--"
           }
         />
