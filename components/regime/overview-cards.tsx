@@ -31,6 +31,9 @@ export function OverviewCards({
     (s) => s.backtest_validation_results.system_status === "PASS",
   ).length;
   const passRate = snapshots.length ? passes / snapshots.length : 0;
+  const providers = Array.from(
+    new Set(snapshots.map((snapshot) => snapshot.market_data_provider)),
+  ).filter(Boolean);
 
   return (
     <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
@@ -44,7 +47,7 @@ export function OverviewCards({
           </CardTitle>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground">
-          As of {formatDate(asOf)} · yfinance provider
+          As of {formatDate(asOf)} · {providers.join(" + ") || "stored provider"}
         </CardContent>
       </Card>
 

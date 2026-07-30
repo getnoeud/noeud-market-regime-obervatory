@@ -215,10 +215,15 @@ export default function HelpPage() {
               <CardTitle className="text-base">Data Source</CardTitle>
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
-              Prices are ingested daily from yfinance and normalized into per-pair daily closes. Sparse direct
-              histories such as GBP/GHS are synthesized from liquid USD anchor legs, then overlaid with any direct
-              quotes Yahoo provides. The deterministic engine reads stored prices, computes the snapshot, and persists
-              it; the observatory reads snapshots, validation runs, provider runs, and benchmark rows through Supabase.
+              Prices are ingested daily from the configured market-data provider
+              and normalized into provider-scoped, per-pair daily closes.
+              ExchangeRate-API is the current official source; its EUR/GHS and
+              GBP/GHS histories are derived from the same USD reference fixing
+              used for USD/GHS, keeping the daily cross rates internally
+              consistent. Earlier Yahoo observations remain in Supabase for
+              auditability but are not blended into current calculations. The
+              observatory reads the provider recorded on each persisted
+              snapshot and provider run.
             </CardContent>
           </Card>
         </TabsContent>

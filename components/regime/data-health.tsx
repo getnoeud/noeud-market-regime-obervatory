@@ -145,6 +145,10 @@ export function ProviderRunsTable({ runs }: { runs: ProviderRun[] }) {
     () => runs.filter((r) => pair === "ALL" || r.pair_code === pair),
     [runs, pair],
   );
+  const providers = React.useMemo(
+    () => Array.from(new Set(data.map((run) => run.provider_name))).sort(),
+    [data],
+  );
 
   const columns = React.useMemo<ColumnDef<ProviderRun>[]>(
     () => [
@@ -206,7 +210,10 @@ export function ProviderRunsTable({ runs }: { runs: ProviderRun[] }) {
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <div>
           <CardTitle>Provider Runs</CardTitle>
-          <CardDescription>yfinance ingestion runs · {data.length} shown</CardDescription>
+          <CardDescription>
+            {providers.length ? providers.join(" + ") : "Market-data"} ingestion
+            runs · {data.length} shown
+          </CardDescription>
         </div>
         <Select value={pair} onValueChange={setPair}>
           <SelectTrigger size="sm" className="w-32"><SelectValue /></SelectTrigger>
