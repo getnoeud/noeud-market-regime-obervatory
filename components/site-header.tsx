@@ -16,6 +16,7 @@ const TITLES: Record<string, string> = {
   pairs: "Pair Review",
   validation: "Validation Runs",
   performance: "Performance Lab",
+  "maturity-risk": "Maturity Risk Lab",
   "data-health": "Data Health",
   help: "Help & Methodology",
 };

@@ -9,6 +9,9 @@ import {
   getMLMultiplierBenchmarks as getMockMLMultiplierBenchmarks,
   getMLMultiplierModels as getMockMLMultiplierModels,
   getMLMultiplierPredictions as getMockMLMultiplierPredictions,
+  getMaturityRiskBenchmarks as getMockMaturityRiskBenchmarks,
+  getMaturityRiskForecasts as getMockMaturityRiskForecasts,
+  getMaturityRiskPolicies as getMockMaturityRiskPolicies,
   getSignalHorizonBenchmarkResults as getMockSignalHorizonBenchmarkResults,
   getSnapshot as getMockSnapshot,
   getSupportedPairs as getMockSupportedPairs,
@@ -30,6 +33,9 @@ import type {
   MLMultiplierBenchmarkResult,
   MLMultiplierModel,
   MLMultiplierPrediction,
+  MaturityRiskBenchmarkResult,
+  MaturityRiskForecast,
+  MaturityRiskPolicy,
   MLShadowContext,
   MLShadowTenorComparison,
   PriorValidationContext,
@@ -944,6 +950,43 @@ export async function getMLMultiplierBenchmarks(): Promise<MLMultiplierBenchmark
       }));
     },
     () => getMockMLMultiplierBenchmarks(),
+  );
+}
+
+export async function getMaturityRiskForecasts(): Promise<MaturityRiskForecast[]> {
+  return withFallback(
+    async () =>
+      supabaseGet<MaturityRiskForecast>("latest_maturity_risk_forecasts", {
+        select: "*",
+        order: "as_of_date.desc,candidate_type.asc,horizon_days.asc",
+        limit: 3000,
+      }),
+    getMockMaturityRiskForecasts,
+  );
+}
+
+export async function getMaturityRiskBenchmarks(): Promise<MaturityRiskBenchmarkResult[]> {
+  return withFallback(
+    async () =>
+      supabaseGet<MaturityRiskBenchmarkResult>("maturity_risk_benchmark_results", {
+        select: "*",
+        horizon_days: "in.(1,3,5,7,10,14,21,30,45,60,90,120,180,252)",
+        order: "evaluation_market_date.desc,horizon_days.asc",
+        limit: 10000,
+      }),
+    getMockMaturityRiskBenchmarks,
+  );
+}
+
+export async function getMaturityRiskPolicies(): Promise<MaturityRiskPolicy[]> {
+  return withFallback(
+    async () =>
+      supabaseGet<MaturityRiskPolicy>("maturity_risk_policies", {
+        select: "*",
+        order: "created_at.desc",
+        limit: 50,
+      }),
+    getMockMaturityRiskPolicies,
   );
 }
 
