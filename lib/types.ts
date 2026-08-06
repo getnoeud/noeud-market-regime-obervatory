@@ -588,6 +588,80 @@ export type MLMultiplierLabResponse = {
   benchmarks: MLMultiplierBenchmarkResult[];
 };
 
+export type MaturityRiskCandidateType =
+  | "rule_based"
+  | "historical_ml"
+  | "news_adjusted";
+
+export type MaturityRiskForecast = {
+  id: string;
+  market_regime_snapshot_id: string;
+  llm_validation_run_id: string | null;
+  pair_code: string;
+  as_of_date: string;
+  maturity_date: string;
+  horizon_days: number;
+  horizon_band: string;
+  candidate_type: MaturityRiskCandidateType;
+  candidate_version: string;
+  surface_version: string;
+  multiplier: number;
+  base_vol: number;
+  implied_vol: number;
+  implied_total_variance: number;
+  confidence: number | null;
+  is_canonical: boolean;
+  evaluation_status: "pending" | "scored" | "invalid";
+  evaluation_reason: string | null;
+  generated_at: string;
+};
+
+export type MaturityRiskBenchmarkResult = {
+  id: string;
+  forecast_id: string;
+  pair_code: string;
+  as_of_date: string;
+  maturity_date: string;
+  evaluation_market_date: string;
+  maturity_rolled: boolean;
+  horizon_days: number;
+  horizon_band: string;
+  candidate_type: MaturityRiskCandidateType;
+  candidate_version: string;
+  surface_version: string;
+  forecast_multiplier: number;
+  forecast_implied_vol: number;
+  realized_forward_variance: number;
+  realized_vol: number;
+  terminal_log_return: number;
+  max_positive_log_return: number;
+  max_negative_log_return: number;
+  max_abs_log_return: number;
+  max_abs_move_day: number;
+  abs_error: number;
+  qlike: number;
+  undercovered: boolean;
+  observation_count: number;
+  evaluated_at: string;
+};
+
+export type MaturityRiskPolicy = {
+  id: string;
+  policy_version: string;
+  status: "experiment" | "preview" | "production" | "retired";
+  champion_candidate_type: MaturityRiskCandidateType | null;
+  champion_candidate_version: string | null;
+  surface_version: string;
+  automatic_promotion: boolean;
+  policy_config: Record<string, unknown>;
+};
+
+export type MaturityRiskLabResponse = {
+  forecasts: MaturityRiskForecast[];
+  benchmarks: MaturityRiskBenchmarkResult[];
+  policies: MaturityRiskPolicy[];
+};
+
 export type ObservatoryDataSourceStatus = {
   source: "supabase" | "mock";
   mode: string;

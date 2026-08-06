@@ -35,6 +35,9 @@ import type {
   MLMultiplierBenchmarkResult,
   MLMultiplierModel,
   MLMultiplierPrediction,
+  MaturityRiskBenchmarkResult,
+  MaturityRiskForecast,
+  MaturityRiskPolicy,
   ProviderRun,
   RawPriceObservation,
   RecommendedAction,
@@ -1131,6 +1134,144 @@ export function getMLMultiplierBenchmarks(): MLMultiplierBenchmarkResult[] {
         evaluated_at: `${AS_OF}T09:00:00Z`,
       } satisfies MLMultiplierBenchmarkResult;
     });
+}
+
+const MATURITY_REPORTING_HORIZONS = [
+  1, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90, 120, 180, 252,
+];
+const MATURITY_CANDIDATES = [
+  "rule_based",
+  "historical_ml",
+  "news_adjusted",
+] as const;
+
+type MaturitySnapshotLike = RegimeSnapshot | RegimeHistoryPoint;
+
+function maturityBaseVol(snapshot: MaturitySnapshotLike, horizon: number) {
+  const readings =
+    "current_volatility_readings" in snapshot
+      ? snapshot.current_volatility_readings
+      : snapshot;
+  if (horizon <= 7) return readings.vol_7d;
+  if (horizon <= 30) {
+    const weight = (horizon - 7) / 23;
+    return Math.sqrt((1 - weight) * readings.vol_7d ** 2 + weight * readings.vol_30d ** 2);
+  }
+  const weight = Math.min((horizon - 30) / 222, 1);
+  return Math.sqrt((1 - weight) * readings.vol_30d ** 2 + weight * readings.vol_252d ** 2);
+}
+
+function maturityRuleMultiplier(snapshot: MaturitySnapshotLike, horizon: number) {
+  const ladder = snapshot.dynamic_trend_aware_regime_multiplier;
+  if (horizon <= 14) return ladder.tenor_le_14d;
+  if (horizon <= 30) return ladder.tenor_le_30d;
+  if (horizon <= 60) return ladder.tenor_le_60d;
+  if (horizon <= 90) return ladder.tenor_le_90d;
+  if (horizon <= 180) return ladder.tenor_le_180d;
+  return ladder.tenor_gt_180d;
+}
+
+export function getMaturityRiskForecasts(): MaturityRiskForecast[] {
+  return getLatestSnapshots().flatMap((snapshot, pairIndex) =>
+    MATURITY_REPORTING_HORIZONS.flatMap((horizon) => {
+      const baseVol = maturityBaseVol(snapshot, horizon);
+      const rule = maturityRuleMultiplier(snapshot, horizon);
+      const maturity = new Date(`${snapshot.as_of_date}T00:00:00Z`);
+      maturity.setUTCDate(maturity.getUTCDate() + horizon);
+      return MATURITY_CANDIDATES.map((candidate, candidateIndex) => {
+        const offset = candidate === "rule_based" ? 0 : candidate === "historical_ml" ? 0.07 : -0.025;
+        const multiplier = Math.max(0.45, rule + offset + Math.sin((horizon + pairIndex) / 18) * 0.025);
+        return {
+          id: `maturity-${snapshot.pair}-${snapshot.as_of_date}-${candidate}-${horizon}`,
+          market_regime_snapshot_id: `snapshot-${snapshot.pair}-${snapshot.as_of_date}`,
+          llm_validation_run_id: candidate === "news_adjusted" ? `validation-${snapshot.pair}` : null,
+          pair_code: snapshot.pair,
+          as_of_date: snapshot.as_of_date,
+          maturity_date: maturity.toISOString().slice(0, 10),
+          horizon_days: horizon,
+          horizon_band: horizon <= 7 ? "front_1_7d" : horizon <= 30 ? "short_8_30d" : horizon <= 90 ? "medium_31_90d" : horizon <= 180 ? "long_91_180d" : "anchor_181_252d",
+          candidate_type: candidate,
+          candidate_version: `fixture-${candidate}-v2`,
+          surface_version: "calendar-surface-v2",
+          multiplier,
+          base_vol: baseVol,
+          implied_vol: baseVol * multiplier,
+          implied_total_variance: (baseVol * multiplier) ** 2 * horizon / 252,
+          confidence: candidate === "news_adjusted" ? 0.72 + candidateIndex * 0.01 : null,
+          is_canonical: true,
+          evaluation_status: "pending",
+          evaluation_reason: null,
+          generated_at: `${snapshot.as_of_date}T08:31:00Z`,
+        } satisfies MaturityRiskForecast;
+      });
+    }),
+  );
+}
+
+export function getMaturityRiskBenchmarks(): MaturityRiskBenchmarkResult[] {
+  const d = dataset();
+  return d.pairs.flatMap((pair, pairIndex) =>
+    d.history[pair].slice(-12).flatMap((snapshot, dateIndex) =>
+      MATURITY_REPORTING_HORIZONS.flatMap((horizon) => {
+        const baseVol = maturityBaseVol(snapshot, horizon);
+        const rule = maturityRuleMultiplier(snapshot, horizon);
+        const realizedVol = baseVol * rule * (0.84 + ((dateIndex + horizon) % 7) * 0.045);
+        const maturity = new Date(`${snapshot.as_of_date}T00:00:00Z`);
+        maturity.setUTCDate(maturity.getUTCDate() + horizon);
+        return MATURITY_CANDIDATES.map((candidate) => {
+          const offset = candidate === "rule_based" ? 0 : candidate === "historical_ml" ? 0.06 : -0.02;
+          const multiplier = Math.max(0.45, rule + offset + Math.sin((dateIndex + pairIndex) / 4) * 0.02);
+          const forecastVol = baseVol * multiplier;
+          return {
+            id: `maturity-benchmark-${pair}-${snapshot.as_of_date}-${candidate}-${horizon}`,
+            forecast_id: `maturity-${pair}-${snapshot.as_of_date}-${candidate}-${horizon}`,
+            pair_code: pair,
+            as_of_date: snapshot.as_of_date,
+            maturity_date: maturity.toISOString().slice(0, 10),
+            evaluation_market_date: maturity.toISOString().slice(0, 10),
+            maturity_rolled: false,
+            horizon_days: horizon,
+            horizon_band: horizon <= 7 ? "front_1_7d" : horizon <= 30 ? "short_8_30d" : horizon <= 90 ? "medium_31_90d" : horizon <= 180 ? "long_91_180d" : "anchor_181_252d",
+            candidate_type: candidate,
+            candidate_version: `fixture-${candidate}-v2`,
+            surface_version: "calendar-surface-v2",
+            forecast_multiplier: multiplier,
+            forecast_implied_vol: forecastVol,
+            realized_forward_variance: realizedVol ** 2 * horizon / 252,
+            realized_vol: realizedVol,
+            terminal_log_return: Math.sin(dateIndex + horizon) * 0.015,
+            max_positive_log_return: 0.012 + (dateIndex % 4) * 0.004,
+            max_negative_log_return: -0.01 - (dateIndex % 3) * 0.003,
+            max_abs_log_return: 0.018 + (dateIndex % 4) * 0.004,
+            max_abs_move_day: Math.max(1, Math.min(horizon, 1 + (dateIndex % Math.max(horizon, 1)))),
+            abs_error: Math.abs(forecastVol - realizedVol),
+            qlike: Math.log(Math.max(forecastVol ** 2, 1e-12)) + realizedVol ** 2 / Math.max(forecastVol ** 2, 1e-12),
+            undercovered: realizedVol > forecastVol,
+            observation_count: Math.max(1, Math.round(horizon * 0.72)),
+            evaluated_at: `${AS_OF}T09:00:00Z`,
+          } satisfies MaturityRiskBenchmarkResult;
+        });
+      }),
+    ),
+  );
+}
+
+export function getMaturityRiskPolicies(): MaturityRiskPolicy[] {
+  return [
+    {
+      id: "maturity-risk-v2-experiment",
+      policy_version: "maturity-risk-v2-experiment",
+      status: "experiment",
+      champion_candidate_type: null,
+      champion_candidate_version: null,
+      surface_version: "calendar-surface-v2",
+      automatic_promotion: false,
+      policy_config: {
+        external_serving_enabled: false,
+        minimum_monitoring_days: 30,
+      },
+    },
+  ];
 }
 
 export { REGIME_LABELS };

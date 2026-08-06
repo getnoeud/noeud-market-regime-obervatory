@@ -144,6 +144,33 @@ const ML_MULTIPLIER_METRICS = [
   },
 ] as const;
 
+const MATURITY_RISK_METRICS = [
+  {
+    name: "Exact maturity",
+    body: "The runtime stores a forecast for every calendar day from 1 through 252. A 17-day request uses day 17 rather than jumping to the 30-day bucket.",
+  },
+  {
+    name: "Forecast volatility",
+    body: "The candidate multiplier times the same continuous base-volatility curve. Comparing candidates on one base isolates the multiplier decision.",
+  },
+  {
+    name: "Absolute error",
+    body: "The distance between forecast implied volatility and realized forward volatility. Lower is better on the same pair, date, and horizon cohort.",
+  },
+  {
+    name: "Undercoverage",
+    body: "Realized volatility exceeded the forecast. Lower can be safer, but persistent zero undercoverage may come from costly systematic overforecasting.",
+  },
+  {
+    name: "Peak path move",
+    body: "The largest cumulative move inside the maturity window and the day it occurred. This catches risk that happened before the final date and later reversed.",
+  },
+  {
+    name: "Manual promotion",
+    body: "The lab never picks a winner automatically. Finance and engineering review monitored dates, segment stability, coverage, and operations before preview.",
+  },
+] as const;
+
 export default function HelpPage() {
   return (
     <>
@@ -157,6 +184,7 @@ export default function HelpPage() {
           <TabsTrigger value="validation">LLM Validation</TabsTrigger>
           <TabsTrigger value="performance">Performance Lab</TabsTrigger>
           <TabsTrigger value="ml-multiplier">ML Multiplier</TabsTrigger>
+          <TabsTrigger value="maturity-risk">Maturity Risk V2</TabsTrigger>
         </TabsList>
 
         <TabsContent value="methodology" className="space-y-4">
@@ -400,6 +428,55 @@ export default function HelpPage() {
               predictions whose full tenor window has matured. The August model and prompt are
               frozen, retraining is disabled, and no candidate can promote itself. Finance and ML
               must review a new immutable version before its role can change.
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="maturity-risk" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Frozen candidate experiment</CardTitle>
+              <CardDescription>
+                Rule-based, historical ML, and news-adjusted surfaces are benchmarked with equal status.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                The historical model does not learn the rule multipliers as labels. It learns from
+                realized forward price paths. The LLM sees the rule and historical candidates as
+                Candidate A and Candidate B, compares both with recent prices and cited news, and
+                emits a separately scored news-adjusted surface.
+              </p>
+              <p>
+                Use the currency-pair control to change both surface charts. Use the horizon control
+                to compare equal-maturity scorecards, then use the candidate filter to narrow the
+                diagnostic table. Sorting and pagination operate on the filtered rows.
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {MATURITY_RISK_METRICS.map((metric) => (
+              <Card key={metric.name}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">{metric.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm leading-relaxed text-muted-foreground">
+                  {metric.body}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">How to read a winner</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-relaxed text-muted-foreground">
+              Lower MAE and QLIKE are better, but a candidate must also avoid excessive
+              undercoverage and persistent upward bias. A short-horizon winner is not automatically
+              a long-horizon winner because those outcomes mature later. The experiment remains
+              internal until a versioned, evidence-backed manual preview policy is recorded.
             </CardContent>
           </Card>
         </TabsContent>

@@ -14,6 +14,7 @@ import type {
   ObservatoryDataSourceStatus,
   SignalHorizonBenchmarkResult,
   MLMultiplierLabResponse,
+  MaturityRiskLabResponse,
   ValidationRun,
 } from "@/lib/types";
 
@@ -202,6 +203,16 @@ export function useMLMultiplierLab() {
     queryKey: ["ml-multiplier-lab"],
     queryFn: async () => {
       const { data } = await api.get<MLMultiplierLabResponse>("/ml-multiplier");
+      return data;
+    },
+  });
+}
+
+export function useMaturityRiskLab() {
+  return useQuery({
+    queryKey: ["maturity-risk-lab"],
+    queryFn: async () => {
+      const { data } = await api.get<MaturityRiskLabResponse>("/maturity-risk");
       return data;
     },
   });
