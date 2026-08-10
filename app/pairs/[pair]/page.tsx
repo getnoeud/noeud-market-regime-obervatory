@@ -19,7 +19,6 @@ import {
 } from "@/components/regime/pair-charts";
 import {
   OperationalMaturityHistoryChart,
-  OperationalMaturityLadder,
 } from "@/components/regime/operational-maturity";
 import {
   PairAuditSummary,
@@ -114,15 +113,10 @@ function PairDetail({ code }: { code: string }) {
                 <TrendAwareAdjustmentCard
                   run={latestValidation}
                   mlPredictions={mlPredictions}
+                  maturityForecasts={maturityRiskQuery.data?.forecasts ?? []}
                 />
               )}
               {latestValidation && <SignalHorizonCard run={latestValidation} />}
-              {maturityRiskQuery.data?.forecasts.length ? (
-                <OperationalMaturityLadder
-                  forecasts={maturityRiskQuery.data.forecasts}
-                  fixedPair={code}
-                />
-              ) : null}
               <PairSnapshotGrid snapshot={snapshotQuery.data} />
               {latestValidation && (
                 <ValidationSummaryCard

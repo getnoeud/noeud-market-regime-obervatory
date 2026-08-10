@@ -4,6 +4,7 @@ import { EmptyState, SectionTitle } from "@/components/regime/primitives";
 import { PerformanceLabV2 } from "@/components/regime/performance-lab-v2";
 import { OperationalMaturityPerformance } from "@/components/regime/operational-maturity";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useBenchmarkResults,
   useBenchmarkEvaluationStatuses,
@@ -23,37 +24,54 @@ export default function PerformancePage() {
 
   return (
     <>
-      <SectionTitle description="Matured outcome scoring for rule-based, Historical ML, and LLM recommendation candidates. The scheduled evaluator publishes rows as maturity windows close.">
+      <SectionTitle description="Operational exact-maturity scoring is the primary view. The original six-tenor LLM-validation cohort remains available for historical comparison.">
         Performance Lab
       </SectionTitle>
-      {isLoading ? (
-        <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton key={index} className="h-[116px] rounded-xl" />
-            ))}
-          </div>
-          <Skeleton className="h-[360px] rounded-xl" />
-          <Skeleton className="h-[460px] rounded-xl" />
-        </>
-      ) : isError ? (
-        <EmptyState
-          title="Benchmark data is unavailable"
-          description="Supabase did not satisfy the benchmark contract. Apply the performance-stabilization migration or inspect the API error before reviewing results."
-        />
-      ) : (
-        <PerformanceLabV2
-          results={query.data ?? []}
-          signalHorizonResults={signalHorizonQuery.data ?? []}
-          statuses={statusesQuery.data ?? []}
-          validations={validationsQuery.data ?? []}
-        />
-      )}
-      {maturityRiskQuery.isLoading ? (
-        <Skeleton className="h-[420px] rounded-xl" />
-      ) : maturityRiskQuery.data ? (
-        <OperationalMaturityPerformance data={maturityRiskQuery.data} />
-      ) : null}
+      <Tabs defaultValue="operational" className="flex flex-col gap-5">
+        <TabsList className="w-fit">
+          <TabsTrigger value="operational">Operational · 14 horizons</TabsTrigger>
+          <TabsTrigger value="legacy">Legacy · 6 tenors</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="operational">
+          {maturityRiskQuery.isLoading ? (
+            <Skeleton className="h-[520px] rounded-xl" />
+          ) : maturityRiskQuery.isError || !maturityRiskQuery.data ? (
+            <EmptyState
+              title="Operational maturity benchmarks are unavailable"
+              description="The exact-maturity evaluator has not returned its canonical forecast and benchmark rows."
+            />
+          ) : (
+            <OperationalMaturityPerformance data={maturityRiskQuery.data} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="legacy">
+          {isLoading ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <Skeleton key={index} className="h-[116px] rounded-xl" />
+                ))}
+              </div>
+              <Skeleton className="h-[360px] rounded-xl" />
+              <Skeleton className="h-[460px] rounded-xl" />
+            </>
+          ) : isError ? (
+            <EmptyState
+              title="Legacy benchmark data is unavailable"
+              description="Supabase did not satisfy the original six-tenor benchmark contract."
+            />
+          ) : (
+            <PerformanceLabV2
+              results={query.data ?? []}
+              signalHorizonResults={signalHorizonQuery.data ?? []}
+              statuses={statusesQuery.data ?? []}
+              validations={validationsQuery.data ?? []}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

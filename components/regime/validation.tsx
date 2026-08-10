@@ -14,6 +14,7 @@ import {
   RegimeBadge,
   ValidationStatusBadge,
 } from "@/components/regime/badges";
+import { OperationalMaturityDecisionTable } from "@/components/regime/operational-maturity";
 import { EmptyState, Stat } from "@/components/regime/primitives";
 import {
   Accordion,
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/card";
 import { DatePickerNaturalLanguage } from "@/components/ui/date-picker-natural-language";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -62,6 +64,7 @@ import {
 import { cn } from "@/lib/utils";
 import type {
   MLMultiplierPrediction,
+  MaturityRiskForecast,
   ValidationResult,
   ValidationRun,
 } from "@/lib/types";
@@ -80,9 +83,11 @@ function formatMaybeJson(raw: string): string {
 export function TrendAwareAdjustmentCard({
   run,
   mlPredictions = [],
+  maturityForecasts = [],
 }: {
   run: ValidationRun;
   mlPredictions?: MLMultiplierPrediction[];
+  maturityForecasts?: MaturityRiskForecast[];
 }) {
   const r = run.result;
   const delta =
@@ -271,6 +276,16 @@ export function TrendAwareAdjustmentCard({
             </TableBody>
           </Table>
         </div>
+        {maturityForecasts.length > 0 && (
+          <>
+            <Separator />
+            <OperationalMaturityDecisionTable
+              forecasts={maturityForecasts}
+              pair={run.pair_code}
+              preferredDate={run.as_of_date}
+            />
+          </>
+        )}
         {r.trend_driver_evidence.length > 0 && (
           <PointList
             title="Trend drivers"

@@ -44,6 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatDate, formatMultiplier, formatVol } from "@/lib/format";
 import {
   displayPairCode,
@@ -150,20 +151,51 @@ function HorizonSelect({
   );
 }
 
+function HorizonStrip({
+  value,
+  onValueChange,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  return (
+    <div className="overflow-x-auto pb-1" aria-label="Operational horizons">
+      <ToggleGroup
+        type="single"
+        value={value}
+        onValueChange={(next) => next && onValueChange(next)}
+        variant="outline"
+        size="sm"
+        className="w-max justify-start"
+      >
+        {OPERATIONAL_MATURITY_HORIZONS.map((days) => (
+          <ToggleGroupItem key={days} value={String(days)} className="min-w-12 font-mono">
+            {days}d
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
+  );
+}
+
 export function OperationalMaturityHistoryChart({
   forecasts,
   fixedPair,
+  horizonControl = "select",
+  defaultHorizon = 30,
   title = "Operational Multiplier History",
   description = "One selected maturity through time across the three benchmark candidates.",
 }: {
   forecasts: MaturityRiskForecast[];
   fixedPair?: string;
+  horizonControl?: "select" | "strip";
+  defaultHorizon?: (typeof OPERATIONAL_MATURITY_HORIZONS)[number];
   title?: string;
   description?: string;
 }) {
   const pairs = React.useMemo(() => availablePairs(forecasts), [forecasts]);
   const [selectedPair, setSelectedPair] = React.useState(() => preferredPair(pairs, fixedPair));
-  const [horizon, setHorizon] = React.useState("30");
+  const [horizon, setHorizon] = React.useState(String(defaultHorizon));
   const pair = preferredPair(pairs, fixedPair ?? selectedPair);
   const rows = React.useMemo(() => {
     const byDate = new Map<string, Record<string, string | number | null>>();
@@ -186,19 +218,26 @@ export function OperationalMaturityHistoryChart({
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>
-            {displayPairCode(pair)} · {description}
-          </CardDescription>
+      <CardHeader className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>
+              {displayPairCode(pair)} · {description}
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            {!fixedPair && (
+              <PairSelect pairs={pairs} value={pair} onValueChange={setSelectedPair} />
+            )}
+            {horizonControl === "select" && (
+              <HorizonSelect value={horizon} onValueChange={setHorizon} />
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
-          {!fixedPair && (
-            <PairSelect pairs={pairs} value={pair} onValueChange={setSelectedPair} />
-          )}
-          <HorizonSelect value={horizon} onValueChange={setHorizon} />
-        </div>
+        {horizonControl === "strip" && (
+          <HorizonStrip value={horizon} onValueChange={setHorizon} />
+        )}
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[320px] w-full">
@@ -253,6 +292,88 @@ export function OperationalMaturityHistoryChart({
   );
 }
 
+export function OperationalMaturityDecisionTable({
+  forecasts,
+  pair,
+  preferredDate,
+  showHeading = true,
+}: {
+  forecasts: MaturityRiskForecast[];
+  pair: string;
+  preferredDate?: string;
+  showHeading?: boolean;
+}) {
+  const pairRows = forecasts.filter((row) => row.pair_code === pair);
+  const latestDate = pairRows.reduce(
+    (latest, row) => (row.as_of_date > latest ? row.as_of_date : latest),
+    "",
+  );
+  const selectedDate =
+    preferredDate && pairRows.some((row) => row.as_of_date === preferredDate)
+      ? preferredDate
+      : latestDate;
+  const selectedRows = pairRows.filter((row) => row.as_of_date === selectedDate);
+  const byHorizon = new Map<
+    number,
+    Map<MaturityRiskCandidateType, MaturityRiskForecast>
+  >();
+  for (const row of selectedRows) {
+    const candidates = byHorizon.get(row.horizon_days) ?? new Map();
+    candidates.set(row.candidate_type, row);
+    byHorizon.set(row.horizon_days, candidates);
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      {showHeading && (
+        <div>
+          <h3 className="text-sm font-semibold">Operational exact-maturity checkpoints</h3>
+          <p className="text-xs text-muted-foreground">
+            {displayPairCode(pair)} · {formatDate(selectedDate)} · all 14 serving horizons
+          </p>
+        </div>
+      )}
+      <div className="overflow-x-auto rounded-md border">
+        <Table className="min-w-[680px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Horizon</TableHead>
+              {MATURITY_RISK_CANDIDATES.map((candidate) => (
+                <TableHead key={candidate.key} className="text-right">
+                  {candidate.label}
+                </TableHead>
+              ))}
+              <TableHead className="text-right">Base vol</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {OPERATIONAL_MATURITY_HORIZONS.map((days) => {
+              const candidates = byHorizon.get(days);
+              const baseVol = candidates?.get("rule_based")?.base_vol;
+              return (
+                <TableRow key={days}>
+                  <TableCell className="font-mono font-medium">{days}d</TableCell>
+                  {MATURITY_RISK_CANDIDATES.map((candidate) => (
+                    <TableCell
+                      key={candidate.key}
+                      className="text-right font-mono tabular-nums"
+                    >
+                      {formatMultiplier(candidates?.get(candidate.key)?.multiplier)}
+                    </TableCell>
+                  ))}
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {formatVol(baseVol)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+}
+
 export function OperationalMaturityLadder({
   forecasts,
   fixedPair,
@@ -265,15 +386,6 @@ export function OperationalMaturityLadder({
   const pair = preferredPair(pairs, fixedPair ?? selectedPair);
   const latest = React.useMemo(() => latestForecasts(forecasts, pair), [forecasts, pair]);
   const latestDate = latest[0]?.as_of_date ?? "";
-  const byHorizon = React.useMemo(() => {
-    const index = new Map<number, Map<MaturityRiskCandidateType, MaturityRiskForecast>>();
-    for (const row of latest) {
-      const candidates = index.get(row.horizon_days) ?? new Map();
-      candidates.set(row.candidate_type, row);
-      index.set(row.horizon_days, candidates);
-    }
-    return index;
-  }, [latest]);
 
   return (
     <Card className="overflow-hidden">
@@ -288,39 +400,13 @@ export function OperationalMaturityLadder({
           <PairSelect pairs={pairs} value={pair} onValueChange={setSelectedPair} />
         )}
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Horizon</TableHead>
-                {MATURITY_RISK_CANDIDATES.map((candidate) => (
-                  <TableHead key={candidate.key}>{candidate.label}</TableHead>
-                ))}
-                <TableHead>Base vol</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {OPERATIONAL_MATURITY_HORIZONS.map((days) => {
-                const candidates = byHorizon.get(days);
-                const baseVol = candidates?.get("rule_based")?.base_vol;
-                return (
-                  <TableRow key={days}>
-                    <TableCell className="font-mono font-medium">{days}d</TableCell>
-                    {MATURITY_RISK_CANDIDATES.map((candidate) => (
-                      <TableCell key={candidate.key} className="font-mono tabular-nums">
-                        {formatMultiplier(candidates?.get(candidate.key)?.multiplier)}
-                      </TableCell>
-                    ))}
-                    <TableCell className="font-mono tabular-nums">
-                      {formatVol(baseVol)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+      <CardContent>
+        <OperationalMaturityDecisionTable
+          forecasts={forecasts}
+          pair={pair}
+          preferredDate={latestDate}
+          showHeading={false}
+        />
       </CardContent>
     </Card>
   );
@@ -337,7 +423,16 @@ export function OperationalMaturityPerformance({
 }) {
   const pairs = React.useMemo(() => availablePairs(data.benchmarks), [data.benchmarks]);
   const [selectedPair, setSelectedPair] = React.useState(() => preferredPair(pairs));
-  const [horizon, setHorizon] = React.useState("30");
+  const availableHorizons = React.useMemo(
+    () =>
+      OPERATIONAL_MATURITY_HORIZONS.filter((days) =>
+        data.benchmarks.some((row) => row.horizon_days === days),
+      ),
+    [data.benchmarks],
+  );
+  const [horizon, setHorizon] = React.useState(
+    String(availableHorizons[0] ?? OPERATIONAL_MATURITY_HORIZONS[0]),
+  );
   const pair = preferredPair(pairs, selectedPair);
   const selectedRows = React.useMemo(
     () =>
@@ -368,17 +463,18 @@ export function OperationalMaturityPerformance({
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <CardTitle>Operational Maturity Performance</CardTitle>
-            <CardDescription>
-              Equal-horizon forecasts versus realized volatility for one serving checkpoint.
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
+        <CardHeader className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <CardTitle>Operational Maturity Performance</CardTitle>
+              <CardDescription>
+                Equal-horizon forecasts versus realized volatility. Horizons with no rows are
+                visible but have not reached their calendar maturity yet.
+              </CardDescription>
+            </div>
             <PairSelect pairs={pairs} value={pair} onValueChange={setSelectedPair} />
-            <HorizonSelect value={horizon} onValueChange={setHorizon} />
           </div>
+          <HorizonStrip value={horizon} onValueChange={setHorizon} />
         </CardHeader>
         <CardContent>
           <ChartContainer config={performanceConfig} className="h-[320px] w-full">
@@ -458,7 +554,8 @@ export function OperationalMaturityPerformance({
                   {MATURITY_RISK_CANDIDATES.map((candidate) => (
                     <TableHead key={candidate.key}>{candidate.label}</TableHead>
                   ))}
-                  <TableHead>Matured rows</TableHead>
+                  <TableHead>Scored forecasts</TableHead>
+                  <TableHead>Matured dates</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -466,6 +563,7 @@ export function OperationalMaturityPerformance({
                   const rows = data.benchmarks.filter(
                     (row) => row.pair_code === pair && row.horizon_days === days,
                   );
+                  const maturedDates = new Set(rows.map((row) => row.as_of_date)).size;
                   return (
                     <TableRow key={days}>
                       <TableCell className="font-mono font-medium">{days}d</TableCell>
@@ -481,6 +579,9 @@ export function OperationalMaturityPerformance({
                         </TableCell>
                       ))}
                       <TableCell className="font-mono tabular-nums">{rows.length}</TableCell>
+                      <TableCell className="font-mono tabular-nums">
+                        {maturedDates || "--"}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
