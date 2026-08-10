@@ -162,26 +162,41 @@ async function supabaseGet<T>(
   const config = supabaseConfig();
   if (!config) throw new Error("Supabase is not configured");
 
-  const url = new URL(`${config.url}/rest/v1/${table}`);
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) url.searchParams.set(key, String(value));
+  const requestedLimit = Math.max(Number(params.limit ?? 1000), 0);
+  const pageSize = Math.min(requestedLimit || 1000, 1000);
+  const baseParams = { ...params };
+  delete baseParams.limit;
+  const rows: T[] = [];
+
+  while (rows.length < requestedLimit) {
+    const url = new URL(`${config.url}/rest/v1/${table}`);
+    for (const [key, value] of Object.entries(baseParams)) {
+      if (value !== undefined) url.searchParams.set(key, String(value));
+    }
+    const remaining = requestedLimit - rows.length;
+    url.searchParams.set("limit", String(Math.min(pageSize, remaining)));
+    url.searchParams.set("offset", String(rows.length));
+
+    const response = await fetch(url, {
+      headers: {
+        apikey: config.key,
+        Authorization: `Bearer ${config.key}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Supabase ${table} request failed: ${response.status} ${body}`);
+    }
+
+    const page = (await response.json()) as T[];
+    rows.push(...page);
+    if (page.length < Math.min(pageSize, remaining)) break;
   }
 
-  const response = await fetch(url, {
-    headers: {
-      apikey: config.key,
-      Authorization: `Bearer ${config.key}`,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Supabase ${table} request failed: ${response.status} ${body}`);
-  }
-
-  return (await response.json()) as T[];
+  return rows;
 }
 
 async function withFallback<T>(loadSupabase: () => Promise<T>, loadMock: () => T): Promise<T> {

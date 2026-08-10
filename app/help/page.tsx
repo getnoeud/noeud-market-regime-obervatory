@@ -1,5 +1,9 @@
+import Link from "next/link";
+import { ChartNoAxesCombinedIcon } from "lucide-react";
+
 import { RegimeBadge } from "@/components/regime/badges";
 import { SectionTitle } from "@/components/regime/primitives";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -452,6 +456,54 @@ export default function HelpPage() {
                 to compare equal-maturity scorecards, then use the candidate filter to narrow the
                 diagnostic table. Sorting and pagination operate on the filtered rows.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Horizon architecture</CardTitle>
+              <CardDescription>
+                Training labels, served maturities, and the operating view are intentionally different grids.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Layer</TableHead>
+                    <TableHead>Coverage</TableHead>
+                    <TableHead>Meaning</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">Training labels</TableCell>
+                    <TableCell className="font-mono">39</TableCell>
+                    <TableCell>Every day from 1–30, then 45, 60, 75, 90, 120, 150, 180, 210, and 252 days.</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Exact inference</TableCell>
+                    <TableCell className="font-mono">252</TableCell>
+                    <TableCell>The same pooled model is evaluated once for each requested calendar horizon from 1–252 days.</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Operational view</TableCell>
+                    <TableCell className="font-mono">14</TableCell>
+                    <TableCell>A compact monitoring sample; it does not limit model predictions or API maturities.</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Maturity scoring</TableCell>
+                    <TableCell className="font-mono">252</TableCell>
+                    <TableCell>Each exact forecast is scored after its full forward window becomes observable.</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+              <Button asChild variant="outline" className="self-start">
+                <Link href="/maturity-risk/surface">
+                  <ChartNoAxesCombinedIcon data-icon="inline-start" />
+                  Open maturity surface explorer
+                </Link>
+              </Button>
             </CardContent>
           </Card>
 

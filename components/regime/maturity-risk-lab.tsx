@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   type ColumnDef,
   type PaginationState,
@@ -16,6 +17,7 @@ import {
   ArrowDownIcon,
   ArrowUpDownIcon,
   ArrowUpIcon,
+  ChartNoAxesCombinedIcon,
   FlaskConicalIcon,
   ShieldCheckIcon,
 } from "lucide-react";
@@ -30,6 +32,7 @@ import {
 
 import { TablePagination } from "@/components/regime/table-pagination";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -138,9 +141,10 @@ function Metric({
 }
 
 export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
+  const { forecasts, benchmarks, policies } = data;
   const pairs = React.useMemo(
-    () => [...new Set(data.forecasts.map((row) => row.pair_code))].sort(),
-    [data.forecasts],
+    () => [...new Set(forecasts.map((row) => row.pair_code))].sort(),
+    [forecasts],
   );
   const [pair, setPair] = React.useState(
     pairs.includes("USDGHS") ? "USDGHS" : (pairs[0] ?? "USDGHS"),
@@ -155,53 +159,109 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
     pageSize: 10,
   });
 
-  const pairForecasts = data.forecasts.filter((row) => row.pair_code === pair);
-  const latestDate = pairForecasts.reduce(
-    (latest, row) => (row.as_of_date > latest ? row.as_of_date : latest),
-    "",
+  const forecastsByPair = React.useMemo(() => {
+    const index = new Map<string, typeof forecasts>();
+    for (const row of forecasts) {
+      const rows = index.get(row.pair_code);
+      if (rows) rows.push(row);
+      else index.set(row.pair_code, [row]);
+    }
+    return index;
+  }, [forecasts]);
+  const benchmarksByPairHorizon = React.useMemo(() => {
+    const index = new Map<string, typeof benchmarks>();
+    for (const row of benchmarks) {
+      const key = `${row.pair_code}:${row.horizon_days}`;
+      const rows = index.get(key);
+      if (rows) rows.push(row);
+      else index.set(key, [row]);
+    }
+    return index;
+  }, [benchmarks]);
+  const pairForecasts = React.useMemo(
+    () => forecastsByPair.get(pair) ?? [],
+    [forecastsByPair, pair],
   );
-  const latest = pairForecasts.filter(
-    (row) => row.as_of_date === latestDate && REPORTING_HORIZONS.includes(row.horizon_days),
+  const latestDate = React.useMemo(
+    () =>
+      pairForecasts.reduce(
+        (latest, row) => (row.as_of_date > latest ? row.as_of_date : latest),
+        "",
+      ),
+    [pairForecasts],
   );
-  const surfaceChart = REPORTING_HORIZONS.map((days) => {
-    const entries = latest.filter((row) => row.horizon_days === days);
-    return {
-      horizon: `${days}d`,
-      days,
-      rule_based: entries.find((row) => row.candidate_type === "rule_based")?.multiplier,
-      historical_ml: entries.find((row) => row.candidate_type === "historical_ml")?.multiplier,
-      news_adjusted: entries.find((row) => row.candidate_type === "news_adjusted")?.multiplier,
-    };
-  });
-  const impliedChart = REPORTING_HORIZONS.map((days) => {
-    const entries = latest.filter((row) => row.horizon_days === days);
-    return {
-      horizon: `${days}d`,
-      rule_based: entries.find((row) => row.candidate_type === "rule_based")?.implied_vol,
-      historical_ml: entries.find((row) => row.candidate_type === "historical_ml")?.implied_vol,
-      news_adjusted: entries.find((row) => row.candidate_type === "news_adjusted")?.implied_vol,
-    };
-  });
+  const latestSurface = React.useMemo(
+    () => pairForecasts.filter((row) => row.as_of_date === latestDate),
+    [latestDate, pairForecasts],
+  );
+  const latestByHorizon = React.useMemo(() => {
+    const index = new Map<number, Map<MaturityRiskCandidateType, (typeof latestSurface)[number]>>();
+    for (const row of latestSurface) {
+      const entries = index.get(row.horizon_days);
+      if (entries) entries.set(row.candidate_type, row);
+      else index.set(row.horizon_days, new Map([[row.candidate_type, row]]));
+    }
+    return index;
+  }, [latestSurface]);
+  const surfaceChart = React.useMemo(
+    () =>
+      REPORTING_HORIZONS.map((days) => {
+        const entries = latestByHorizon.get(days);
+        return {
+          horizon: `${days}d`,
+          days,
+          rule_based: entries?.get("rule_based")?.multiplier,
+          historical_ml: entries?.get("historical_ml")?.multiplier,
+          news_adjusted: entries?.get("news_adjusted")?.multiplier,
+        };
+      }),
+    [latestByHorizon],
+  );
+  const impliedChart = React.useMemo(
+    () =>
+      REPORTING_HORIZONS.map((days) => {
+        const entries = latestByHorizon.get(days);
+        return {
+          horizon: `${days}d`,
+          rule_based: entries?.get("rule_based")?.implied_vol,
+          historical_ml: entries?.get("historical_ml")?.implied_vol,
+          news_adjusted: entries?.get("news_adjusted")?.implied_vol,
+        };
+      }),
+    [latestByHorizon],
+  );
 
-  const horizonBenchmarkRows = data.benchmarks.filter(
-    (row) => row.pair_code === pair && row.horizon_days === Number(horizon),
+  const horizonBenchmarkRows = React.useMemo(
+    () => benchmarksByPairHorizon.get(`${pair}:${Number(horizon)}`) ?? [],
+    [benchmarksByPairHorizon, horizon, pair],
   );
-  const benchmarkRows = horizonBenchmarkRows.filter(
-    (row) => candidate === "all" || row.candidate_type === candidate,
+  const benchmarkRows = React.useMemo(
+    () =>
+      horizonBenchmarkRows.filter(
+        (row) => candidate === "all" || row.candidate_type === candidate,
+      ),
+    [candidate, horizonBenchmarkRows],
   );
-  const candidateStats = CANDIDATES.map((candidateItem) => {
-    const rows = horizonBenchmarkRows.filter(
-      (row) => row.candidate_type === candidateItem.key,
-    );
-    const mae = rows.length
-      ? rows.reduce((sum, row) => sum + row.abs_error, 0) / rows.length
-      : null;
-    const undercoverage = rows.length
-      ? rows.filter((row) => row.undercovered).length / rows.length
-      : null;
-    return { ...candidateItem, rows: rows.length, mae, undercoverage };
-  });
-  const currentPolicy = data.policies.find((policy) => policy.status !== "retired");
+  const candidateStats = React.useMemo(
+    () =>
+      CANDIDATES.map((candidateItem) => {
+        const rows = horizonBenchmarkRows.filter(
+          (row) => row.candidate_type === candidateItem.key,
+        );
+        const mae = rows.length
+          ? rows.reduce((sum, row) => sum + row.abs_error, 0) / rows.length
+          : null;
+        const undercoverage = rows.length
+          ? rows.filter((row) => row.undercovered).length / rows.length
+          : null;
+        return { ...candidateItem, rows: rows.length, mae, undercoverage };
+      }),
+    [horizonBenchmarkRows],
+  );
+  const currentPolicy = React.useMemo(
+    () => policies.find((policy) => policy.status !== "retired"),
+    [policies],
+  );
 
   const columns = React.useMemo<ColumnDef<MaturityRiskBenchmarkResult>[]>(
     () => [
@@ -328,24 +388,36 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
               candidate is promoted automatically.
             </CardDescription>
           </div>
-          <Select value={pair} onValueChange={setPair}>
-            <SelectTrigger className="w-36" aria-label="Currency pair">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {pairs.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value.slice(0, 3)}/{value.slice(3)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/maturity-risk/surface">
+                <ChartNoAxesCombinedIcon data-icon="inline-start" />
+                Surface explorer
+              </Link>
+            </Button>
+            <Select value={pair} onValueChange={setPair}>
+              <SelectTrigger className="w-36" aria-label="Currency pair">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {pairs.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value.slice(0, 3)}/{value.slice(3)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Metric label="Surface date" value={formatDate(latestDate)} hint={`${latest.length} reporting points`} />
-          <Metric label="Matured rows" value={data.benchmarks.length.toLocaleString()} hint="All pairs and candidates" />
+          <Metric
+            label="Surface date"
+            value={formatDate(latestDate)}
+            hint={`${latestByHorizon.size} exact horizons available`}
+          />
+          <Metric label="Matured rows" value={benchmarks.length.toLocaleString()} hint="All pairs and candidates" />
           <Metric label="Policy" value={currentPolicy?.status ?? "Not loaded"} hint={currentPolicy?.policy_version ?? "Migration required"} />
           <Metric label="External serving" value="Disabled" hint="Manual promotion gate" />
         </CardContent>
@@ -355,7 +427,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
         <Card>
           <CardHeader>
             <CardTitle>Multiplier surface</CardTitle>
-            <CardDescription>Latest reporting horizons across all three candidates.</CardDescription>
+            <CardDescription>The concise 14-horizon operating view across all candidates.</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[330px] w-full">
@@ -366,7 +438,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
                 {CANDIDATES.map((candidate) => (
-                  <Line key={candidate.key} dataKey={candidate.key} name={candidate.label} stroke={`var(--color-${candidate.key})`} strokeWidth={2} dot={false} connectNulls />
+                  <Line key={candidate.key} dataKey={candidate.key} name={candidate.label} stroke={`var(--color-${candidate.key})`} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                 ))}
               </LineChart>
             </ChartContainer>
@@ -387,7 +459,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
                 <ChartTooltip content={<ChartTooltipContent formatter={(value) => percentage(Number(value))} />} />
                 <Legend />
                 {CANDIDATES.map((candidate) => (
-                  <Line key={candidate.key} dataKey={candidate.key} name={candidate.label} stroke={`var(--color-${candidate.key})`} strokeWidth={2} dot={false} connectNulls />
+                  <Line key={candidate.key} dataKey={candidate.key} name={candidate.label} stroke={`var(--color-${candidate.key})`} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                 ))}
               </LineChart>
             </ChartContainer>
