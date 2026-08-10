@@ -28,7 +28,12 @@ export function SiteHeader() {
 
   const segments = pathname.split("/").filter(Boolean);
   const root = segments[0];
-  const title = pathname === "/" ? "Overview" : (TITLES[root] ?? "Overview");
+  const title =
+    pathname === "/"
+      ? "Overview"
+      : pathname === "/maturity-risk/surface"
+        ? "Maturity Surface Explorer"
+        : (TITLES[root] ?? "Overview");
 
   // On a per-pair detail route, show the pair switcher in the header.
   const detail =
