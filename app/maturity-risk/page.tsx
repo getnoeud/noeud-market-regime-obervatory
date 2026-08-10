@@ -1,6 +1,7 @@
 "use client";
 
 import { MaturityRiskLab } from "@/components/regime/maturity-risk-lab";
+import { MaturityRiskViewSwitcher } from "@/components/regime/maturity-risk-view-switcher";
 import { EmptyState, SectionTitle } from "@/components/regime/primitives";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMaturityRiskLab } from "@/hooks/use-regime";
@@ -9,9 +10,12 @@ export default function MaturityRiskPage() {
   const query = useMaturityRiskLab();
   return (
     <div className="flex flex-col gap-5">
-      <SectionTitle description="Arbitrary calendar-maturity forecasts, path-aware outcomes, and manual promotion governance across the frozen candidate cohort.">
-        Maturity Risk Lab
-      </SectionTitle>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionTitle description="Arbitrary calendar-maturity forecasts, path-aware outcomes, and manual promotion governance across the frozen candidate cohort.">
+          Maturity Risk Lab
+        </SectionTitle>
+        <MaturityRiskViewSwitcher active="lab" />
+      </div>
       {query.isLoading ? (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-[180px] rounded-lg" />
@@ -28,7 +32,7 @@ export default function MaturityRiskPage() {
       ) : !query.data.forecasts.length ? (
         <EmptyState
           title="Waiting for the first maturity surface"
-          description="The calculation flow will publish rule-based and historical-ML surfaces; validation adds the news-adjusted candidate."
+          description="The calculation flow will publish rule-based and historical-ML surfaces; validation adds the LLM recommendation candidate."
         />
       ) : (
         <MaturityRiskLab data={query.data} />

@@ -11,6 +11,7 @@ import {
   getMLMultiplierPredictions as getMockMLMultiplierPredictions,
   getMaturityRiskBenchmarks as getMockMaturityRiskBenchmarks,
   getMaturityRiskForecasts as getMockMaturityRiskForecasts,
+  getOperationalMaturityRiskForecasts as getMockOperationalMaturityRiskForecasts,
   getMaturityRiskPolicies as getMockMaturityRiskPolicies,
   getSignalHorizonBenchmarkResults as getMockSignalHorizonBenchmarkResults,
   getSnapshot as getMockSnapshot,
@@ -973,10 +974,24 @@ export async function getMaturityRiskForecasts(): Promise<MaturityRiskForecast[]
     async () =>
       supabaseGet<MaturityRiskForecast>("latest_maturity_risk_forecasts", {
         select: "*",
-        order: "as_of_date.desc,candidate_type.asc,horizon_days.asc",
+        order: "as_of_date.desc,candidate_type.asc,horizon_days.asc,id.asc",
         limit: 3000,
       }),
     getMockMaturityRiskForecasts,
+  );
+}
+
+export async function getOperationalMaturityRiskForecasts(): Promise<MaturityRiskForecast[]> {
+  return withFallback(
+    async () =>
+      supabaseGet<MaturityRiskForecast>("maturity_risk_forecasts", {
+        select: "*",
+        horizon_days: "in.(1,3,5,7,10,14,21,30,45,60,90,120,180,252)",
+        is_canonical: "eq.true",
+        order: "as_of_date.desc,candidate_type.asc,horizon_days.asc,id.asc",
+        limit: 10000,
+      }),
+    getMockOperationalMaturityRiskForecasts,
   );
 }
 
@@ -986,7 +1001,7 @@ export async function getMaturityRiskBenchmarks(): Promise<MaturityRiskBenchmark
       supabaseGet<MaturityRiskBenchmarkResult>("maturity_risk_benchmark_results", {
         select: "*",
         horizon_days: "in.(1,3,5,7,10,14,21,30,45,60,90,120,180,252)",
-        order: "evaluation_market_date.desc,horizon_days.asc",
+        order: "evaluation_market_date.desc,horizon_days.asc,id.asc",
         limit: 10000,
       }),
     getMockMaturityRiskBenchmarks,

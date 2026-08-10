@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import {
   type ColumnDef,
   type PaginationState,
@@ -17,13 +16,11 @@ import {
   ArrowDownIcon,
   ArrowUpDownIcon,
   ArrowUpIcon,
-  ChartNoAxesCombinedIcon,
   FlaskConicalIcon,
   ShieldCheckIcon,
 } from "lucide-react";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   XAxis,
@@ -31,8 +28,11 @@ import {
 } from "recharts";
 
 import { TablePagination } from "@/components/regime/table-pagination";
+import {
+  ChartTooltipRow,
+  chartTooltipColor,
+} from "@/components/regime/chart-tooltip-row";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/card";
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -63,6 +65,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate, formatNumber } from "@/lib/format";
+import {
+  MATURITY_RISK_CANDIDATES,
+  maturityCandidateLabel,
+  OPERATIONAL_MATURITY_HORIZONS,
+} from "@/lib/maturity-risk";
 import { cn } from "@/lib/utils";
 import type {
   MaturityRiskBenchmarkResult,
@@ -70,23 +77,12 @@ import type {
   MaturityRiskLabResponse,
 } from "@/lib/types";
 
-const REPORTING_HORIZONS = [1, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90, 120, 180, 252];
-const CANDIDATES: Array<{ key: MaturityRiskCandidateType; label: string }> = [
-  { key: "rule_based", label: "Rule-based" },
-  { key: "historical_ml", label: "Historical ML" },
-  { key: "news_adjusted", label: "News-adjusted" },
-];
-
 const chartConfig = {
   rule_based: { label: "Rule-based", color: "var(--chart-1)" },
   historical_ml: { label: "Historical ML", color: "var(--chart-2)" },
-  news_adjusted: { label: "News-adjusted", color: "var(--chart-3)" },
+  news_adjusted: { label: "LLM recommendation", color: "var(--chart-3)" },
   realized_vol: { label: "Realized", color: "var(--chart-4)" },
 } satisfies ChartConfig;
-
-function candidateLabel(value: MaturityRiskCandidateType) {
-  return CANDIDATES.find((candidate) => candidate.key === value)?.label ?? value;
-}
 
 function percentage(value: number) {
   return `${formatNumber(value * 100, 2)}%`;
@@ -205,7 +201,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
   }, [latestSurface]);
   const surfaceChart = React.useMemo(
     () =>
-      REPORTING_HORIZONS.map((days) => {
+      OPERATIONAL_MATURITY_HORIZONS.map((days) => {
         const entries = latestByHorizon.get(days);
         return {
           horizon: `${days}d`,
@@ -219,7 +215,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
   );
   const impliedChart = React.useMemo(
     () =>
-      REPORTING_HORIZONS.map((days) => {
+      OPERATIONAL_MATURITY_HORIZONS.map((days) => {
         const entries = latestByHorizon.get(days);
         return {
           horizon: `${days}d`,
@@ -244,7 +240,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
   );
   const candidateStats = React.useMemo(
     () =>
-      CANDIDATES.map((candidateItem) => {
+      MATURITY_RISK_CANDIDATES.map((candidateItem) => {
         const rows = horizonBenchmarkRows.filter(
           (row) => row.candidate_type === candidateItem.key,
         );
@@ -287,7 +283,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
             onClick={column.getToggleSortingHandler()!}
           />
         ),
-        cell: ({ row }) => <Badge variant="outline">{candidateLabel(row.original.candidate_type)}</Badge>,
+        cell: ({ row }) => <Badge variant="outline">{maturityCandidateLabel(row.original.candidate_type)}</Badge>,
       },
       {
         accessorKey: "forecast_implied_vol",
@@ -384,17 +380,11 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
               <Badge variant="secondary">Benchmark only</Badge>
             </div>
             <CardDescription>
-              Rule-based, historical ML, and news-adjusted surfaces are scored independently. No
+              Rule-based, historical ML, and LLM recommendation surfaces are scored independently. No
               candidate is promoted automatically.
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href="/maturity-risk/surface">
-                <ChartNoAxesCombinedIcon data-icon="inline-start" />
-                Surface explorer
-              </Link>
-            </Button>
             <Select value={pair} onValueChange={setPair}>
               <SelectTrigger className="w-36" aria-label="Currency pair">
                 <SelectValue />
@@ -436,8 +426,8 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
                 <XAxis dataKey="horizon" tickLine={false} axisLine={false} minTickGap={18} />
                 <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value).toFixed(1)}x`} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend />
-                {CANDIDATES.map((candidate) => (
+                <ChartLegend content={<ChartLegendContent />} />
+                {MATURITY_RISK_CANDIDATES.map((candidate) => (
                   <Line key={candidate.key} dataKey={candidate.key} name={candidate.label} stroke={`var(--color-${candidate.key})`} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                 ))}
               </LineChart>
@@ -456,9 +446,21 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="horizon" tickLine={false} axisLine={false} minTickGap={18} />
                 <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}%`} />
-                <ChartTooltip content={<ChartTooltipContent formatter={(value) => percentage(Number(value))} />} />
-                <Legend />
-                {CANDIDATES.map((candidate) => (
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value, name, item) => (
+                        <ChartTooltipRow
+                          color={chartTooltipColor(item)}
+                          label={maturityCandidateLabel(name as MaturityRiskCandidateType)}
+                          value={percentage(Number(value))}
+                        />
+                      )}
+                    />
+                  }
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                {MATURITY_RISK_CANDIDATES.map((candidate) => (
                   <Line key={candidate.key} dataKey={candidate.key} name={candidate.label} stroke={`var(--color-${candidate.key})`} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                 ))}
               </LineChart>
@@ -485,7 +487,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {REPORTING_HORIZONS.map((days) => (
+                    {OPERATIONAL_MATURITY_HORIZONS.map((days) => (
                       <SelectItem key={days} value={String(days)}>
                         {days} days
                       </SelectItem>
@@ -503,7 +505,7 @@ export function MaturityRiskLab({ data }: { data: MaturityRiskLabResponse }) {
                 <SelectContent>
                   <SelectGroup>
                     <SelectItem value="all">All candidates</SelectItem>
-                    {CANDIDATES.map((item) => (
+                    {MATURITY_RISK_CANDIDATES.map((item) => (
                       <SelectItem key={item.key} value={item.key}>
                         {item.label}
                       </SelectItem>

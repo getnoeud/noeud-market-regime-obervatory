@@ -441,7 +441,7 @@ export default function HelpPage() {
             <CardHeader>
               <CardTitle className="text-base">Frozen candidate experiment</CardTitle>
               <CardDescription>
-                Rule-based, historical ML, and news-adjusted surfaces are benchmarked with equal status.
+                Rule-based, Historical ML, and LLM recommendation surfaces are benchmarked with equal status.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
@@ -449,7 +449,7 @@ export default function HelpPage() {
                 The historical model does not learn the rule multipliers as labels. It learns from
                 realized forward price paths. The LLM sees the rule and historical candidates as
                 Candidate A and Candidate B, compares both with recent prices and cited news, and
-                emits a separately scored news-adjusted surface.
+                emits a separately scored LLM recommendation surface.
               </p>
               <p>
                 Use the currency-pair control to change both surface charts. Use the horizon control

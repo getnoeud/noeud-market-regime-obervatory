@@ -31,6 +31,10 @@ import {
 } from "recharts";
 
 import { TablePagination } from "@/components/regime/table-pagination";
+import {
+  ChartTooltipRow,
+  chartTooltipColor,
+} from "@/components/regime/chart-tooltip-row";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -69,9 +73,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatDate, formatNumber } from "@/lib/format";
+import {
+  MATURITY_RISK_CANDIDATES,
+} from "@/lib/maturity-risk";
 import { cn } from "@/lib/utils";
 import type {
-  MaturityRiskCandidateType,
   MaturityRiskForecast,
   MaturityRiskSurfaceResponse,
 } from "@/lib/types";
@@ -88,11 +94,6 @@ const TRAINING_HORIZONS = new Set([
   210,
   252,
 ]);
-const CANDIDATES: Array<{ key: MaturityRiskCandidateType; label: string }> = [
-  { key: "rule_based", label: "Rule-based" },
-  { key: "historical_ml", label: "Historical ML" },
-  { key: "news_adjusted", label: "News-adjusted" },
-];
 const RANGE_OPTIONS = [
   { value: "all", label: "All maturities", minimum: 1, maximum: 252 },
   { value: "front", label: "Front · 1–30d", minimum: 1, maximum: 30 },
@@ -114,10 +115,10 @@ type SurfaceRow = {
 const chartConfig = {
   rule_based: { label: "Rule-based", color: "var(--chart-1)" },
   historical_ml: { label: "Historical ML", color: "var(--chart-2)" },
-  news_adjusted: { label: "News-adjusted", color: "var(--chart-3)" },
+  news_adjusted: { label: "LLM recommendation", color: "var(--chart-3)" },
   training_label: { label: "ML training horizon", color: "var(--chart-2)" },
   ml_vs_rule: { label: "ML vs rule-based", color: "var(--chart-4)" },
-  news_vs_ml: { label: "News vs ML", color: "var(--chart-5)" },
+  news_vs_ml: { label: "LLM recommendation vs Historical ML", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
 function percentage(value: number | null | undefined, digits = 1) {
@@ -301,7 +302,7 @@ export function MaturitySurfaceExplorer({ data }: { data: MaturityRiskSurfaceRes
             <Badge variant="outline">Generalized</Badge>
           ),
       },
-      ...CANDIDATES.map<ColumnDef<SurfaceRow>>((candidate) => ({
+      ...MATURITY_RISK_CANDIDATES.map<ColumnDef<SurfaceRow>>((candidate) => ({
         id: candidate.key,
         accessorFn: (row) => row[candidate.key]?.multiplier,
         header: ({ column }) => (
@@ -323,7 +324,7 @@ export function MaturitySurfaceExplorer({ data }: { data: MaturityRiskSurfaceRes
           relativeDelta(row.historical_ml?.multiplier, row.rule_based?.multiplier),
         header: ({ column }) => (
           <SortHeader
-            label="ML vs rule"
+            label="Historical ML vs Rule-based"
             sorted={column.getIsSorted()}
             onClick={column.getToggleSortingHandler()!}
           />
@@ -345,7 +346,7 @@ export function MaturitySurfaceExplorer({ data }: { data: MaturityRiskSurfaceRes
           relativeDelta(row.news_adjusted?.multiplier, row.historical_ml?.multiplier),
         header: ({ column }) => (
           <SortHeader
-            label="News vs ML"
+            label="LLM recommendation vs Historical ML"
             sorted={column.getIsSorted()}
             onClick={column.getToggleSortingHandler()!}
           />
@@ -503,9 +504,17 @@ export function MaturitySurfaceExplorer({ data }: { data: MaturityRiskSurfaceRes
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey="days" type="number" domain={[selectedRange.minimum, selectedRange.maximum]} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}d`} />
                   <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value).toFixed(1)}x`} />
-                  <ChartTooltip content={<ChartTooltipContent labelFormatter={(value) => `${value} days`} />} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(_value, payload) =>
+                          `${String(payload?.[0]?.payload?.days ?? "--")} days`
+                        }
+                      />
+                    }
+                  />
                   <Legend />
-                  {CANDIDATES.map((candidate) => (
+                  {MATURITY_RISK_CANDIDATES.map((candidate) => (
                     <Line key={candidate.key} dataKey={candidate.key} name={candidate.label} stroke={`var(--color-${candidate.key})`} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                   ))}
                   <Scatter name="ML training horizon" data={trainingMarkers} dataKey="historical_ml" fill="var(--color-training_label)" isAnimationActive={false} />
@@ -518,7 +527,7 @@ export function MaturitySurfaceExplorer({ data }: { data: MaturityRiskSurfaceRes
             <CardHeader>
               <CardTitle>Candidate divergence</CardTitle>
               <CardDescription>
-                Relative multiplier differences isolate where historical learning or news changes the rule surface.
+                Relative multiplier differences isolate where Historical ML or the LLM recommendation changes the rule surface.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -528,10 +537,30 @@ export function MaturitySurfaceExplorer({ data }: { data: MaturityRiskSurfaceRes
                   <XAxis dataKey="days" type="number" domain={[selectedRange.minimum, selectedRange.maximum]} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}d`} />
                   <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}%`} />
                   <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="4 4" />
-                  <ChartTooltip content={<ChartTooltipContent labelFormatter={(value) => `${value} days`} formatter={(value) => percentage(Number(value))} />} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(_value, payload) =>
+                          `${String(payload?.[0]?.payload?.days ?? "--")} days`
+                        }
+                        formatter={(value, name, item) => (
+                          <ChartTooltipRow
+                            color={chartTooltipColor(item)}
+                            label={
+                              String(name).includes("rule-based") ||
+                              String(name).includes("Rule-based")
+                                ? "Historical ML vs Rule-based"
+                                : "LLM recommendation vs Historical ML"
+                            }
+                            value={percentage(Number(value))}
+                          />
+                        )}
+                      />
+                    }
+                  />
                   <Legend />
-                  <Line dataKey="ml_vs_rule" name="ML vs rule-based" stroke="var(--color-ml_vs_rule)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                  <Line dataKey="news_vs_ml" name="News vs ML" stroke="var(--color-news_vs_ml)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                  <Line dataKey="ml_vs_rule" name="Historical ML vs Rule-based" stroke="var(--color-ml_vs_rule)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                  <Line dataKey="news_vs_ml" name="LLM recommendation vs Historical ML" stroke="var(--color-news_vs_ml)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                 </LineChart>
               </ChartContainer>
             </CardContent>

@@ -188,7 +188,15 @@ export function SpotHistoryChart({
             <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={40} fontSize={11} tickFormatter={shortDate} />
             <YAxis tickLine={false} axisLine={false} width={56} domain={["auto", "auto"]} fontSize={11} tickFormatter={(v) => formatRate(Number(v))} />
             <ChartTooltip
-              content={<ChartTooltipContent labelFormatter={(v) => shortDate(String(v))} formatter={(val) => formatRate(Number(val))} />}
+              content={
+                <ChartTooltipContent
+                  labelFormatter={(v) => shortDate(String(v))}
+                  formatter={legendTooltipFormatter(
+                    { spot: "Spot rate" },
+                    (value) => formatRate(value),
+                  )}
+                />
+              }
             />
             <Area dataKey="spot" type="monotone" stroke="var(--color-spot)" strokeWidth={2} fill="url(#spotFill)" dot={single ? { r: 3, fill: "var(--color-spot)" } : false} />
           </AreaChart>
@@ -237,7 +245,15 @@ export function AccelerationHistoryChart({ history }: { history: RegimeHistoryPo
               />
             ))}
             <ChartTooltip
-              content={<ChartTooltipContent labelFormatter={(v) => shortDate(String(v))} formatter={(val) => `${formatNumber(Number(val), 2)}x`} />}
+              content={
+                <ChartTooltipContent
+                  labelFormatter={(v) => shortDate(String(v))}
+                  formatter={legendTooltipFormatter(
+                    { accel: "Acceleration" },
+                    (value) => `${formatNumber(value, 2)}x`,
+                  )}
+                />
+              }
             />
             <Line
               dataKey="accel"
@@ -718,7 +734,16 @@ export function TermStructureChart({ snapshot }: { snapshot: RegimeSnapshot }) {
             <CartesianGrid vertical={false} />
             <XAxis dataKey="tenor" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} />
             <YAxis tickLine={false} axisLine={false} width={44} fontSize={11} tickFormatter={(v) => formatVol(Number(v), 0)} />
-            <ChartTooltip content={<ChartTooltipContent formatter={(val) => formatVol(Number(val))} />} />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={legendTooltipFormatter(
+                    { vol: "Annualized volatility" },
+                    (value) => formatVol(value),
+                  )}
+                />
+              }
+            />
             <Area dataKey="vol" type="monotone" stroke="var(--color-vol)" strokeWidth={2} fill="url(#tsFill)" />
           </AreaChart>
         </ChartContainer>
@@ -745,7 +770,17 @@ export function VolWindowsChart({ snapshot }: { snapshot: RegimeSnapshot }) {
             <CartesianGrid vertical={false} />
             <XAxis dataKey="window" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} />
             <YAxis tickLine={false} axisLine={false} width={44} fontSize={11} tickFormatter={(v) => formatVol(Number(v), 0)} />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={(val) => formatVol(Number(val))} />} />
+            <ChartTooltip
+              cursor={false}
+              content={
+                <ChartTooltipContent
+                  formatter={legendTooltipFormatter(
+                    { vol: "Annualized volatility" },
+                    (value) => formatVol(value),
+                  )}
+                />
+              }
+            />
             <Bar dataKey="vol" fill="var(--color-vol)" radius={5} />
           </BarChart>
         </ChartContainer>
@@ -779,7 +814,17 @@ export function MultiplierChart({ snapshot }: { snapshot: RegimeSnapshot }) {
             <YAxis tickLine={false} axisLine={false} width={36} domain={[0, MULTIPLIER_CEILING]} fontSize={11} tickFormatter={(v) => `${formatNumber(Number(v), 1)}x`} />
             <ReferenceLine y={MULTIPLIER_FLOOR} stroke="var(--muted-foreground)" strokeDasharray="3 3" strokeOpacity={0.4} />
             <ReferenceLine y={MULTIPLIER_CEILING} stroke="var(--muted-foreground)" strokeDasharray="3 3" strokeOpacity={0.4} />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={(val) => `${formatNumber(Number(val), 2)}x`} />} />
+            <ChartTooltip
+              cursor={false}
+              content={
+                <ChartTooltipContent
+                  formatter={legendTooltipFormatter(
+                    { multiplier: "Multiplier" },
+                    (value) => `${formatNumber(value, 2)}x`,
+                  )}
+                />
+              }
+            />
             <Bar dataKey="multiplier" radius={5}>
               {data.map((d) => (
                 <Cell key={d.tenor} fill="var(--color-multiplier)" />

@@ -14,10 +14,13 @@ import {
   TermStructureChart,
   TermStructureHistoryChart,
   SignalHorizonHistoryChart,
-  TrendAwareMultiplierHistoryChart,
   VolatilityHistoryChart,
   VolWindowsChart,
 } from "@/components/regime/pair-charts";
+import {
+  OperationalMaturityHistoryChart,
+  OperationalMaturityLadder,
+} from "@/components/regime/operational-maturity";
 import {
   PairAuditSummary,
   PairHeaderCard,
@@ -38,6 +41,7 @@ import {
   usePriceObservations,
   usePairValidations,
   useMLMultiplierLab,
+  useMaturityRiskOperational,
 } from "@/hooks/use-regime";
 
 const TABS = ["snapshot", "charts", "validation"] as const;
@@ -56,6 +60,7 @@ function PairDetail({ code }: { code: string }) {
   const priceQuery = usePriceObservations(code);
   const validationsQuery = usePairValidations(code);
   const mlMultiplierQuery = useMLMultiplierLab();
+  const maturityRiskQuery = useMaturityRiskOperational();
   const validations = validationsQuery.data ?? [];
   const latestValidation =
     validations.find(
@@ -112,6 +117,12 @@ function PairDetail({ code }: { code: string }) {
                 />
               )}
               {latestValidation && <SignalHorizonCard run={latestValidation} />}
+              {maturityRiskQuery.data?.forecasts.length ? (
+                <OperationalMaturityLadder
+                  forecasts={maturityRiskQuery.data.forecasts}
+                  fixedPair={code}
+                />
+              ) : null}
               <PairSnapshotGrid snapshot={snapshotQuery.data} />
               {latestValidation && (
                 <ValidationSummaryCard
@@ -125,12 +136,13 @@ function PairDetail({ code }: { code: string }) {
             <TabsContent value="charts" className="space-y-4">
               {historyQuery.data && historyQuery.data.length > 0 ? (
                 <>
-                  <TrendAwareMultiplierHistoryChart
-                    history={historyQuery.data}
-                    validations={validations}
-                    mlPredictions={mlPredictions}
-                    pair={snapshotQuery.data.display_pair}
-                  />
+                  {maturityRiskQuery.data?.forecasts.length ? (
+                    <OperationalMaturityHistoryChart
+                      forecasts={maturityRiskQuery.data.forecasts}
+                      fixedPair={code}
+                      title="Rolling Operational Multiplier Path"
+                    />
+                  ) : null}
                   {validations.length > 0 && (
                     <SignalHorizonHistoryChart
                       validations={validations}

@@ -2,12 +2,14 @@
 
 import { EmptyState, SectionTitle } from "@/components/regime/primitives";
 import { PerformanceLabV2 } from "@/components/regime/performance-lab-v2";
+import { OperationalMaturityPerformance } from "@/components/regime/operational-maturity";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useBenchmarkResults,
   useBenchmarkEvaluationStatuses,
   useSignalHorizonBenchmarkResults,
   useValidationRuns,
+  useMaturityRiskOperational,
 } from "@/hooks/use-regime";
 
 export default function PerformancePage() {
@@ -15,12 +17,13 @@ export default function PerformancePage() {
   const signalHorizonQuery = useSignalHorizonBenchmarkResults();
   const validationsQuery = useValidationRuns();
   const statusesQuery = useBenchmarkEvaluationStatuses();
+  const maturityRiskQuery = useMaturityRiskOperational();
   const isLoading = query.isLoading || signalHorizonQuery.isLoading || validationsQuery.isLoading || statusesQuery.isLoading;
   const isError = query.isError || signalHorizonQuery.isError || validationsQuery.isError || statusesQuery.isError;
 
   return (
     <>
-      <SectionTitle description="Matured outcome scoring for quant-only multipliers versus LLM-adjusted recommendations. The scheduled evaluator publishes rows as tenor windows mature.">
+      <SectionTitle description="Matured outcome scoring for rule-based, Historical ML, and LLM recommendation candidates. The scheduled evaluator publishes rows as maturity windows close.">
         Performance Lab
       </SectionTitle>
       {isLoading ? (
@@ -46,6 +49,11 @@ export default function PerformancePage() {
           validations={validationsQuery.data ?? []}
         />
       )}
+      {maturityRiskQuery.isLoading ? (
+        <Skeleton className="h-[420px] rounded-xl" />
+      ) : maturityRiskQuery.data ? (
+        <OperationalMaturityPerformance data={maturityRiskQuery.data} />
+      ) : null}
     </>
   );
 }

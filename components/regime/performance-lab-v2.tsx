@@ -25,6 +25,10 @@ import {
 } from "recharts";
 
 import { TablePagination } from "@/components/regime/table-pagination";
+import {
+  ChartTooltipRow,
+  chartTooltipColor,
+} from "@/components/regime/chart-tooltip-row";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { DatePickerNaturalLanguage } from "@/components/ui/date-picker-natural-language";
@@ -846,7 +850,7 @@ export function PerformanceLabV2({
             <span className="font-mono text-xs text-muted-foreground">{filtered.length} rows · {uniqueCount(filtered, (row) => row.llm_validation_run_id ?? row.id)} runs</span>
           </div>
           <ChartContainer config={{ quant: { label: "Quant", color: "var(--chart-4)" }, llm: { label: "LLM", color: "var(--chart-1)" } }} className="h-[280px] w-full">
-            <BarChart data={chartRows}><CartesianGrid vertical={false} /><XAxis dataKey="tenor" tickLine={false} axisLine={false} /><YAxis tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}`} width={34} tickLine={false} axisLine={false} /><ChartTooltip content={<ChartTooltipContent formatter={(value) => formatVol(Number(value))} />} /><Bar dataKey="quant" fill="var(--color-quant)" radius={3} /><Bar dataKey="llm" fill="var(--color-llm)" radius={3} /></BarChart>
+            <BarChart data={chartRows}><CartesianGrid vertical={false} /><XAxis dataKey="tenor" tickLine={false} axisLine={false} /><YAxis tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}`} width={34} tickLine={false} axisLine={false} /><ChartTooltip content={<ChartTooltipContent formatter={(value, name, item) => <ChartTooltipRow color={chartTooltipColor(item)} label={name === "quant" ? "Quant" : "LLM recommendation"} value={formatVol(Number(value))} />} />} /><Bar dataKey="quant" fill="var(--color-quant)" radius={3} /><Bar dataKey="llm" fill="var(--color-llm)" radius={3} /></BarChart>
           </ChartContainer>
         </div>
         <div className="border p-4">
