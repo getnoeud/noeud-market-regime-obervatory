@@ -667,6 +667,11 @@ export type MaturityRiskSurfaceResponse = {
   policies: MaturityRiskPolicy[];
 };
 
+export type MaturityRiskOperationalResponse = {
+  forecasts: MaturityRiskForecast[];
+  benchmarks: MaturityRiskBenchmarkResult[];
+};
+
 export type ObservatoryDataSourceStatus = {
   source: "supabase" | "mock";
   mode: string;

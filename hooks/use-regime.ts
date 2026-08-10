@@ -15,6 +15,7 @@ import type {
   SignalHorizonBenchmarkResult,
   MLMultiplierLabResponse,
   MaturityRiskLabResponse,
+  MaturityRiskOperationalResponse,
   MaturityRiskSurfaceResponse,
   ValidationRun,
 } from "@/lib/types";
@@ -224,6 +225,18 @@ export function useMaturityRiskSurface() {
     queryKey: ["maturity-risk-surface"],
     queryFn: async () => {
       const { data } = await api.get<MaturityRiskSurfaceResponse>("/maturity-risk/surface");
+      return data;
+    },
+  });
+}
+
+export function useMaturityRiskOperational() {
+  return useQuery({
+    queryKey: ["maturity-risk-operational"],
+    queryFn: async () => {
+      const { data } = await api.get<MaturityRiskOperationalResponse>(
+        "/maturity-risk/operational",
+      );
       return data;
     },
   });

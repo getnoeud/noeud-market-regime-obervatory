@@ -26,6 +26,7 @@ import {
   VAR_COVERAGE_TARGET,
   VOLATILITY_WINDOWS,
 } from "@/lib/mock/engine";
+import { OPERATIONAL_MATURITY_HORIZONS } from "@/lib/maturity-risk";
 import type {
   BacktestStatus,
   BenchmarkResult,
@@ -1136,14 +1137,12 @@ export function getMLMultiplierBenchmarks(): MLMultiplierBenchmarkResult[] {
     });
 }
 
-const MATURITY_REPORTING_HORIZONS = [
-  1, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90, 120, 180, 252,
-];
 const MATURITY_CANDIDATES = [
   "rule_based",
   "historical_ml",
   "news_adjusted",
 ] as const;
+const EXACT_MATURITY_HORIZONS = Array.from({ length: 252 }, (_, index) => index + 1);
 
 type MaturitySnapshotLike = RegimeSnapshot | RegimeHistoryPoint;
 
@@ -1171,21 +1170,26 @@ function maturityRuleMultiplier(snapshot: MaturitySnapshotLike, horizon: number)
   return ladder.tenor_gt_180d;
 }
 
-export function getMaturityRiskForecasts(): MaturityRiskForecast[] {
-  return getLatestSnapshots().flatMap((snapshot, pairIndex) =>
-    MATURITY_REPORTING_HORIZONS.flatMap((horizon) => {
+function buildMaturityRiskForecasts(
+  snapshots: MaturitySnapshotLike[],
+  pairCode: string,
+  pairIndex = 0,
+  horizons: readonly number[] = OPERATIONAL_MATURITY_HORIZONS,
+): MaturityRiskForecast[] {
+  return snapshots.flatMap((snapshot) =>
+    horizons.flatMap((horizon) => {
       const baseVol = maturityBaseVol(snapshot, horizon);
       const rule = maturityRuleMultiplier(snapshot, horizon);
       const maturity = new Date(`${snapshot.as_of_date}T00:00:00Z`);
       maturity.setUTCDate(maturity.getUTCDate() + horizon);
-      return MATURITY_CANDIDATES.map((candidate, candidateIndex) => {
+      return MATURITY_CANDIDATES.map((candidate) => {
         const offset = candidate === "rule_based" ? 0 : candidate === "historical_ml" ? 0.07 : -0.025;
         const multiplier = Math.max(0.45, rule + offset + Math.sin((horizon + pairIndex) / 18) * 0.025);
         return {
-          id: `maturity-${snapshot.pair}-${snapshot.as_of_date}-${candidate}-${horizon}`,
-          market_regime_snapshot_id: `snapshot-${snapshot.pair}-${snapshot.as_of_date}`,
-          llm_validation_run_id: candidate === "news_adjusted" ? `validation-${snapshot.pair}` : null,
-          pair_code: snapshot.pair,
+          id: `maturity-${pairCode}-${snapshot.as_of_date}-${candidate}-${horizon}`,
+          market_regime_snapshot_id: `snapshot-${pairCode}-${snapshot.as_of_date}`,
+          llm_validation_run_id: candidate === "news_adjusted" ? `validation-${pairCode}` : null,
+          pair_code: pairCode,
           as_of_date: snapshot.as_of_date,
           maturity_date: maturity.toISOString().slice(0, 10),
           horizon_days: horizon,
@@ -1197,7 +1201,7 @@ export function getMaturityRiskForecasts(): MaturityRiskForecast[] {
           base_vol: baseVol,
           implied_vol: baseVol * multiplier,
           implied_total_variance: (baseVol * multiplier) ** 2 * horizon / 252,
-          confidence: candidate === "news_adjusted" ? 0.72 + candidateIndex * 0.01 : null,
+          confidence: candidate === "news_adjusted" ? 0.72 : null,
           is_canonical: true,
           evaluation_status: "pending",
           evaluation_reason: null,
@@ -1208,11 +1212,29 @@ export function getMaturityRiskForecasts(): MaturityRiskForecast[] {
   );
 }
 
+export function getMaturityRiskForecasts(): MaturityRiskForecast[] {
+  return getLatestSnapshots().flatMap((snapshot, pairIndex) =>
+    buildMaturityRiskForecasts(
+      [snapshot],
+      snapshot.pair,
+      pairIndex,
+      EXACT_MATURITY_HORIZONS,
+    ),
+  );
+}
+
+export function getOperationalMaturityRiskForecasts(): MaturityRiskForecast[] {
+  const d = dataset();
+  return d.pairs.flatMap((pair, pairIndex) =>
+    buildMaturityRiskForecasts(d.history[pair].slice(-40), pair, pairIndex),
+  );
+}
+
 export function getMaturityRiskBenchmarks(): MaturityRiskBenchmarkResult[] {
   const d = dataset();
   return d.pairs.flatMap((pair, pairIndex) =>
     d.history[pair].slice(-12).flatMap((snapshot, dateIndex) =>
-      MATURITY_REPORTING_HORIZONS.flatMap((horizon) => {
+      OPERATIONAL_MATURITY_HORIZONS.flatMap((horizon) => {
         const baseVol = maturityBaseVol(snapshot, horizon);
         const rule = maturityRuleMultiplier(snapshot, horizon);
         const realizedVol = baseVol * rule * (0.84 + ((dateIndex + horizon) % 7) * 0.045);

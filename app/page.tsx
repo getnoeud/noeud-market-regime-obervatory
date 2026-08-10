@@ -7,8 +7,8 @@ import {
 import {
   AccelerationLeaderboard,
   RegimeDistributionChart,
-  TrendAwareOverviewHistoryChart,
 } from "@/components/regime/overview-charts";
+import { OperationalMaturityHistoryChart } from "@/components/regime/operational-maturity";
 import {
   OperationsMetricStrip,
   OperationsSupportPanels,
@@ -20,20 +20,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   useProviderRuns,
   useMLMultiplierLab,
-  useRegimeHistories,
+  useMaturityRiskOperational,
   useRegimeOverview,
-  useValidationRuns,
   useValidations,
 } from "@/hooks/use-regime";
 
 export default function OverviewPage() {
   const query = useRegimeOverview();
   const validationsQuery = useValidations();
-  const validationRunsQuery = useValidationRuns();
   const providerRunsQuery = useProviderRuns();
   const mlMultiplierQuery = useMLMultiplierLab();
-  const pairs = query.data?.snapshots.map((snapshot) => snapshot.pair) ?? [];
-  const historiesQuery = useRegimeHistories(pairs);
+  const maturityRiskQuery = useMaturityRiskOperational();
 
   if (query.isLoading) return <LoadingSkeleton />;
   if (query.isError)
@@ -54,10 +51,13 @@ export default function OverviewPage() {
       />
       {mlMultiplierQuery.data && <MLShadowOverviewPanel data={mlMultiplierQuery.data} />}
       <SignalHorizonOverviewPanel validations={validationsQuery.data ?? []} />
-      <TrendAwareOverviewHistoryChart
-        histories={historiesQuery.data ?? {}}
-        validations={validationRunsQuery.data ?? []}
-      />
+      {maturityRiskQuery.data?.forecasts.length ? (
+        <OperationalMaturityHistoryChart
+          forecasts={maturityRiskQuery.data.forecasts}
+          title="Rolling Operational Multiplier Path"
+          description="Select one operational horizon to compare Rule-based, Historical ML, and LLM recommendation cleanly."
+        />
+      ) : null}
       <TrendOverlayMatrix
         snapshots={query.data!.snapshots}
         validations={validationsQuery.data ?? []}
