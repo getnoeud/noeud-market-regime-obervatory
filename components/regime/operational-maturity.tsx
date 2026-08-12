@@ -434,12 +434,52 @@ export function OperationalMaturityPerformance({
     String(availableHorizons[0] ?? OPERATIONAL_MATURITY_HORIZONS[0]),
   );
   const pair = preferredPair(pairs, selectedPair);
+  const activeCandidateVersions = React.useMemo(() => {
+    const latestByCandidate = new Map<
+      MaturityRiskCandidateType,
+      MaturityRiskForecast
+    >();
+    for (const row of data.forecasts) {
+      if (row.pair_code !== pair) continue;
+      const current = latestByCandidate.get(row.candidate_type);
+      if (
+        !current ||
+        row.as_of_date > current.as_of_date ||
+        (row.as_of_date === current.as_of_date && row.generated_at > current.generated_at)
+      ) {
+        latestByCandidate.set(row.candidate_type, row);
+      }
+    }
+    return new Map(
+      [...latestByCandidate].map(([candidate, row]) => [candidate, row.candidate_version]),
+    );
+  }, [data.forecasts, pair]);
+  const cohortRows = React.useMemo(() => {
+    const currentVersionRows = data.benchmarks.filter(
+      (row) =>
+        row.pair_code === pair &&
+        activeCandidateVersions.get(row.candidate_type) === row.candidate_version,
+    );
+    const candidatesByOutcome = new Map<string, Set<MaturityRiskCandidateType>>();
+    for (const row of currentVersionRows) {
+      const key = `${row.as_of_date}:${row.horizon_days}`;
+      const candidates = candidatesByOutcome.get(key) ?? new Set();
+      candidates.add(row.candidate_type);
+      candidatesByOutcome.set(key, candidates);
+    }
+    const completeOutcomes = new Set(
+      [...candidatesByOutcome]
+        .filter(([, candidates]) => candidates.size === MATURITY_RISK_CANDIDATES.length)
+        .map(([key]) => key),
+    );
+    return currentVersionRows.filter((row) =>
+      completeOutcomes.has(`${row.as_of_date}:${row.horizon_days}`),
+    );
+  }, [activeCandidateVersions, data.benchmarks, pair]);
   const selectedRows = React.useMemo(
     () =>
-      data.benchmarks.filter(
-        (row) => row.pair_code === pair && row.horizon_days === Number(horizon),
-      ),
-    [data.benchmarks, horizon, pair],
+      cohortRows.filter((row) => row.horizon_days === Number(horizon)),
+    [cohortRows, horizon],
   );
   const history = React.useMemo(() => {
     const byDate = new Map<string, Record<string, string | number | null>>();
@@ -468,8 +508,8 @@ export function OperationalMaturityPerformance({
             <div className="flex flex-col gap-1">
               <CardTitle>Operational Maturity Performance</CardTitle>
               <CardDescription>
-                Equal-horizon forecasts versus realized volatility. Horizons with no rows are
-                visible but have not reached their calendar maturity yet.
+                Active candidate versions on matched pair/date/horizon outcomes. Horizons with no
+                rows are visible but have not reached a comparable calendar maturity yet.
               </CardDescription>
             </div>
             <PairSelect pairs={pairs} value={pair} onValueChange={setSelectedPair} />
@@ -542,7 +582,8 @@ export function OperationalMaturityPerformance({
         <CardHeader>
           <CardTitle>MAE by Operational Horizon</CardTitle>
           <CardDescription>
-            Mean absolute volatility error for {displayPairCode(pair)}; lower is better.
+            Mean absolute volatility error for {displayPairCode(pair)} on equal active-version
+            cohorts; lower is better.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -560,9 +601,7 @@ export function OperationalMaturityPerformance({
               </TableHeader>
               <TableBody>
                 {OPERATIONAL_MATURITY_HORIZONS.map((days) => {
-                  const rows = data.benchmarks.filter(
-                    (row) => row.pair_code === pair && row.horizon_days === days,
-                  );
+                  const rows = cohortRows.filter((row) => row.horizon_days === days);
                   const maturedDates = new Set(rows.map((row) => row.as_of_date)).size;
                   return (
                     <TableRow key={days}>
