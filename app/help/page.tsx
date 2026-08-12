@@ -4,7 +4,13 @@ import { ChartNoAxesCombinedIcon } from "lucide-react";
 import { RegimeBadge } from "@/components/regime/badges";
 import { SectionTitle } from "@/components/regime/primitives";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -56,11 +62,26 @@ const METRICS = [
 ];
 
 const PIPELINE = [
-  { step: "1 · Retrieval", body: "perplexity/sonar gathers current market context (macro, central bank, currency-specific) and returns cited evidence." },
-  { step: "2 · Memory", body: "The scorer receives compact same-pair validation context from the previous seven calendar days so today's view can react to what it said earlier." },
-  { step: "3 · Scoring", body: "One or more scorer models independently judge whether external context supports the deterministic trend-aware multiplier read over the shared research brief and prior context." },
-  { step: "4 · Horizon", body: "The final JSON includes how many days the LLM believes today's overlay remains useful before a fresh evidence read is required." },
-  { step: "5 · Aggregation", body: "anthropic/claude-sonnet-4.5 aggregates the views using the research brief and citations as the factual anchor — not a majority vote." },
+  {
+    step: "1 · Retrieval",
+    body: "perplexity/sonar gathers current market context (macro, central bank, currency-specific) and returns cited evidence.",
+  },
+  {
+    step: "2 · Memory",
+    body: "The scorer receives compact same-pair validation context from the previous seven calendar days so today's view can react to what it said earlier.",
+  },
+  {
+    step: "3 · Scoring",
+    body: "One or more scorer models independently judge whether external context supports the deterministic trend-aware multiplier read over the shared research brief and prior context.",
+  },
+  {
+    step: "4 · Horizon",
+    body: "The final JSON includes how many days the LLM believes today's overlay remains useful before a fresh evidence read is required.",
+  },
+  {
+    step: "5 · Aggregation",
+    body: "anthropic/claude-sonnet-4.5 aggregates the views using the research brief and citations as the factual anchor — not a majority vote.",
+  },
 ];
 
 const BENCHMARK_METRICS = [
@@ -109,18 +130,31 @@ const PERFORMANCE_TABLE_FILTERS = [
     items: [
       ["Currency pair", "Show experiments for one FX pair."],
       ["Memory variant", "Compare memory-on or memory-off runs in isolation."],
-      ["Experiment or brief", "Search a full or partial experiment ID or frozen research-brief hash."],
-      ["As of from / to", "Restrict runs by the validation market date. The dates are inclusive."],
+      [
+        "Experiment or brief",
+        "Search a full or partial experiment ID or frozen research-brief hash.",
+      ],
+      [
+        "As of from / to",
+        "Restrict runs by the validation market date. The dates are inclusive.",
+      ],
     ],
   },
   {
     title: "Matured outcome tape",
-    scope: "Filters only matured benchmark rows; charts and headline KPIs keep their selected cohort.",
+    scope:
+      "Filters only matured benchmark rows; charts and headline KPIs keep their selected cohort.",
     items: [
       ["Currency pair", "Show matured outcomes for one FX pair."],
       ["Tenor", "Focus on one forecast horizon, from ≤14d through >180d."],
-      ["Evaluated from / to", "Restrict rows by the timestamp when the benchmark was evaluated."],
-      ["Time", "Refine either date boundary when several evaluator runs occurred on the same day."],
+      [
+        "Evaluated from / to",
+        "Restrict rows by the timestamp when the benchmark was evaluated.",
+      ],
+      [
+        "Time",
+        "Refine either date boundary when several evaluator runs occurred on the same day.",
+      ],
     ],
   },
 ] as const;
@@ -196,7 +230,8 @@ export default function HelpPage() {
             <CardHeader>
               <CardTitle className="text-base">Regime Bands</CardTitle>
               <CardDescription>
-                Regimes are classified purely from acceleration, the 30d / 252d volatility ratio.
+                Regimes are classified purely from acceleration, the 30d / 252d
+                volatility ratio.
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0">
@@ -229,6 +264,49 @@ export default function HelpPage() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Performance Lab Views</CardTitle>
+              <CardDescription>
+                The metrics are shared; the forecast contracts and experiment
+                questions differ.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                <span className="font-medium text-foreground">
+                  Exact maturity
+                </span>{" "}
+                is the primary operational benchmark. It applies MAE, QLIKE,
+                signed bias, undercoverage, balanced adjustment direction, and
+                cohort-health checks to the 1, 3, 5, 7, 10, 14, 21, 30, 45, 60,
+                90, 120, 180, and 252-day horizons. A blank metric means that
+                horizon has not produced a complete matured comparison yet.
+              </p>
+              <p>
+                Use the pair, market-data-provider, and surface-version controls
+                together. They prevent Yahoo Finance history, ExchangeRate-API
+                history, old rule candidates, and current candidates from being
+                silently mixed. Aggregate results include only pair/date/horizon
+                observations where rule-based, historical ML, and LLM-adjusted
+                forecasts all exist on the active version cohort.
+              </p>
+              <p>
+                <span className="font-medium text-foreground">
+                  Historical overlay
+                </span>{" "}
+                preserves the original six-bucket Quant-versus-LLM evaluation
+                for continuity. It is not the owner of the metrics.{" "}
+                <span className="font-medium text-foreground">
+                  LLM experiments
+                </span>{" "}
+                isolates memory A/B and declared signal-life checks, which
+                answer different causal and consistency questions from
+                exact-maturity forecast accuracy.
+              </p>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {METRICS.map((m) => (
               <Card key={m.name}>
@@ -254,8 +332,8 @@ export default function HelpPage() {
               used for USD/GHS, keeping the daily cross rates internally
               consistent. Earlier Yahoo observations remain in Supabase for
               auditability but are not blended into current calculations. The
-              observatory reads the provider recorded on each persisted
-              snapshot and provider run.
+              observatory reads the provider recorded on each persisted snapshot
+              and provider run.
             </CardContent>
           </Card>
         </TabsContent>
@@ -263,9 +341,12 @@ export default function HelpPage() {
         <TabsContent value="validation" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">LLM Validation Pipeline</CardTitle>
+              <CardTitle className="text-base">
+                LLM Validation Pipeline
+              </CardTitle>
               <CardDescription>
-                The intelligence layer validates the trend-aware multiplier ladder. It does not overwrite the deterministic snapshot.
+                The intelligence layer validates the trend-aware multiplier
+                ladder. It does not overwrite the deterministic snapshot.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -284,11 +365,18 @@ export default function HelpPage() {
             <CardHeader>
               <CardTitle className="text-base">Trend-Aware Focus</CardTitle>
               <CardDescription>
-                The model receives the full deterministic payload, but its recommendation is centered on the multiplier ladder from 14d through 180d+.
+                The model receives the full deterministic payload, but its
+                recommendation is centered on the multiplier ladder from 14d
+                through 180d+.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
-              The LLM reads recent market context over the configured lookback window, checks whether that context implies higher, lower, or stable volatility pressure, then returns its own recommended multiplier map beside the quant map. The UI shows both ladders side by side so the finance team can see exactly where the model agrees, tightens, or relaxes the deterministic trend-aware view.
+              The LLM reads recent market context over the configured lookback
+              window, checks whether that context implies higher, lower, or
+              stable volatility pressure, then returns its own recommended
+              multiplier map beside the quant map. The UI shows both ladders
+              side by side so the finance team can see exactly where the model
+              agrees, tightens, or relaxes the deterministic trend-aware view.
             </CardContent>
           </Card>
         </TabsContent>
@@ -298,11 +386,17 @@ export default function HelpPage() {
             <CardHeader>
               <CardTitle className="text-base">Performance Benchmark</CardTitle>
               <CardDescription>
-                Benchmark rows are scored only after enough future price data exists for the tenor window.
+                Benchmark rows are scored only after enough future price data
+                exists for the tenor window.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
-              Each LLM validation freezes both multiplier ladders, the full tenor volatility curve, and the validation date. The primary evaluator waits for each tenor to mature, calculates realized forward volatility, and compares tenor-matched quant and LLM forecasts against what actually happened. The older 252d-anchor method remains available only as a diagnostic.
+              Each LLM validation freezes both multiplier ladders, the full
+              tenor volatility curve, and the validation date. The primary
+              evaluator waits for each tenor to mature, calculates realized
+              forward volatility, and compares tenor-matched quant and LLM
+              forecasts against what actually happened. The older 252d-anchor
+              method remains available only as a diagnostic.
             </CardContent>
           </Card>
 
@@ -310,28 +404,38 @@ export default function HelpPage() {
             <CardHeader>
               <CardTitle className="text-base">Signal-Life Benchmark</CardTitle>
               <CardDescription>
-                The LLM declares one expected-valid-until date for the whole overlay.
+                The LLM declares one expected-valid-until date for the whole
+                overlay.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
-              The signal-horizon evaluator waits until that declared date matures, then checks whether the overlay helped during that short window across the multiplier ladder. This is a secondary consistency diagnostic. A three-day signal life does not prove a 90d or 180d forecast; only the corresponding matured fixed-tenor benchmark can do that.
+              The signal-horizon evaluator waits until that declared date
+              matures, then checks whether the overlay helped during that short
+              window across the multiplier ladder. This is a secondary
+              consistency diagnostic. A three-day signal life does not prove a
+              90d or 180d forecast; only the corresponding matured fixed-tenor
+              benchmark can do that.
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Using Performance Lab Filters</CardTitle>
+              <CardTitle className="text-base">
+                Using Performance Lab Filters
+              </CardTitle>
               <CardDescription>
-                Global cohort controls and table filters have intentionally different scopes.
+                Global cohort controls and table filters have intentionally
+                different scopes.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Use the controls at the top of Performance Lab when you want to
-                recalculate charts, KPIs, and benchmark summaries. Use the filter
-                bar attached to a table when you only want to find or inspect rows
-                in that table. Table filters combine with AND logic, reset the
-                table to page one, and update its row count and pagination.
+                recalculate charts, KPIs, and benchmark summaries. Use the
+                filter bar attached to a table when you only want to find or
+                inspect rows in that table. Table filters combine with AND
+                logic, reset the table to page one, and update its row count and
+                pagination.
               </p>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {PERFORMANCE_TABLE_FILTERS.map((group) => (
@@ -342,7 +446,10 @@ export default function HelpPage() {
                     </p>
                     <dl className="mt-3 divide-y text-sm">
                       {group.items.map(([name, body]) => (
-                        <div key={name} className="grid gap-1 py-2.5 sm:grid-cols-[140px_1fr]">
+                        <div
+                          key={name}
+                          className="grid gap-1 py-2.5 sm:grid-cols-[140px_1fr]"
+                        >
                           <dt className="font-medium">{name}</dt>
                           <dd className="text-muted-foreground">{body}</dd>
                         </div>
@@ -352,7 +459,10 @@ export default function HelpPage() {
                 ))}
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Select <span className="font-medium text-foreground">Clear filters</span>{" "}
+                Select{" "}
+                <span className="font-medium text-foreground">
+                  Clear filters
+                </span>{" "}
                 to restore every row in that table. Sorting is applied after
                 filtering, and the rows-per-page and page controls apply to the
                 filtered result.
@@ -377,11 +487,17 @@ export default function HelpPage() {
             <CardHeader>
               <CardTitle className="text-base">Automation</CardTitle>
               <CardDescription>
-                The benchmark flow is deployed separately from daily ingestion, calculation, and LLM validation.
+                The benchmark flow is deployed separately from daily ingestion,
+                calculation, and LLM validation.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
-              Prefect runs the fixed-tenor benchmark evaluator weekly by default. The signal-horizon evaluator runs Monday, Wednesday, and Friday at 09:00 Accra time because LLM signal lives can mature in only a few days. Both flows scan stored validation runs, write matured results to their benchmark tables, and leave fresh windows pending until their future prices exist.
+              Prefect runs the fixed-tenor benchmark evaluator weekly by
+              default. The signal-horizon evaluator runs Monday, Wednesday, and
+              Friday at 09:00 Accra time because LLM signal lives can mature in
+              only a few days. Both flows scan stored validation runs, write
+              matured results to their benchmark tables, and leave fresh windows
+              pending until their future prices exist.
             </CardContent>
           </Card>
         </TabsContent>
@@ -389,23 +505,27 @@ export default function HelpPage() {
         <TabsContent value="ml-multiplier" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Independent multiplier shadow</CardTitle>
+              <CardTitle className="text-base">
+                Independent multiplier shadow
+              </CardTitle>
               <CardDescription>
-                Noeud Multiplier Direct v1 is monitored beside the Quant Engine and does not
-                overwrite it.
+                Noeud Multiplier Direct v1 is monitored beside the Quant Engine
+                and does not overwrite it.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
-                The model learns a multiplier directly from point-in-time market features. Its
-                target is future realized volatility divided by the tenor-matched base
-                volatility, bounded between 0.80x and 3.00x. The Quant Engine multiplier is not a
-                model feature, target anchor, or fallback.
+                The model learns a multiplier directly from point-in-time market
+                features. Its target is future realized volatility divided by
+                the tenor-matched base volatility, bounded between 0.80x and
+                3.00x. The Quant Engine multiplier is not a model feature,
+                target anchor, or fallback.
               </p>
               <p>
-                Use the pair and tenor controls at the top of ML Multiplier Lab to update every
-                history and diagnostic chart. The latest ladder always shows all six tenors so
-                the current curve remains visible.
+                Use the pair and tenor controls at the top of ML Multiplier Lab
+                to update every history and diagnostic chart. The latest ladder
+                always shows all six tenors so the current curve remains
+                visible.
               </p>
             </CardContent>
           </Card>
@@ -428,10 +548,11 @@ export default function HelpPage() {
               <CardTitle className="text-base">Operational meaning</CardTitle>
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
-              Daily ML inference follows deterministic calculation. Weekly evaluation scores only
-              predictions whose full tenor window has matured. The August model and prompt are
-              frozen, retraining is disabled, and no candidate can promote itself. Finance and ML
-              must review a new immutable version before its role can change.
+              Daily ML inference follows deterministic calculation. Weekly
+              evaluation scores only predictions whose full tenor window has
+              matured. The August model and prompt are frozen, retraining is
+              disabled, and no candidate can promote itself. Finance and ML must
+              review a new immutable version before its role can change.
             </CardContent>
           </Card>
         </TabsContent>
@@ -439,22 +560,27 @@ export default function HelpPage() {
         <TabsContent value="maturity-risk" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Frozen candidate experiment</CardTitle>
+              <CardTitle className="text-base">
+                Frozen candidate experiment
+              </CardTitle>
               <CardDescription>
-                Rule-based, Historical ML, and LLM recommendation surfaces are benchmarked with equal status.
+                Rule-based, Historical ML, and LLM recommendation surfaces are
+                benchmarked with equal status.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
-                The historical model does not learn the rule multipliers as labels. It learns from
-                realized forward price paths. The LLM sees the rule and historical candidates as
-                Candidate A and Candidate B, compares both with recent prices and cited news, and
-                emits a separately scored LLM recommendation surface.
+                The historical model does not learn the rule multipliers as
+                labels. It learns from realized forward price paths. The LLM
+                sees the rule and historical candidates as Candidate A and
+                Candidate B, compares both with recent prices and cited news,
+                and emits a separately scored LLM recommendation surface.
               </p>
               <p>
-                Use the currency-pair control to change both surface charts. Use the horizon control
-                to compare equal-maturity scorecards, then use the candidate filter to narrow the
-                diagnostic table. Sorting and pagination operate on the filtered rows.
+                Use the currency-pair control to change both surface charts. Use
+                the horizon control to compare equal-maturity scorecards, then
+                use the candidate filter to narrow the diagnostic table. Sorting
+                and pagination operate on the filtered rows.
               </p>
             </CardContent>
           </Card>
@@ -463,7 +589,8 @@ export default function HelpPage() {
             <CardHeader>
               <CardTitle className="text-base">Horizon architecture</CardTitle>
               <CardDescription>
-                Training labels, served maturities, and the operating view are intentionally different grids.
+                Training labels, served maturities, and the operating view are
+                intentionally different grids.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -477,24 +604,44 @@ export default function HelpPage() {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-medium">Training labels</TableCell>
+                    <TableCell className="font-medium">
+                      Training labels
+                    </TableCell>
                     <TableCell className="font-mono">39</TableCell>
-                    <TableCell>Every day from 1–30, then 45, 60, 75, 90, 120, 150, 180, 210, and 252 days.</TableCell>
+                    <TableCell>
+                      Every day from 1–30, then 45, 60, 75, 90, 120, 150, 180,
+                      210, and 252 days.
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Exact inference</TableCell>
+                    <TableCell className="font-medium">
+                      Exact inference
+                    </TableCell>
                     <TableCell className="font-mono">252</TableCell>
-                    <TableCell>The same pooled model is evaluated once for each requested calendar horizon from 1–252 days.</TableCell>
+                    <TableCell>
+                      The same pooled model is evaluated once for each requested
+                      calendar horizon from 1–252 days.
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Operational view</TableCell>
+                    <TableCell className="font-medium">
+                      Operational view
+                    </TableCell>
                     <TableCell className="font-mono">14</TableCell>
-                    <TableCell>A compact monitoring sample; it does not limit model predictions or API maturities.</TableCell>
+                    <TableCell>
+                      A compact monitoring sample; it does not limit model
+                      predictions or API maturities.
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Maturity scoring</TableCell>
+                    <TableCell className="font-medium">
+                      Maturity scoring
+                    </TableCell>
                     <TableCell className="font-mono">252</TableCell>
-                    <TableCell>Each exact forecast is scored after its full forward window becomes observable.</TableCell>
+                    <TableCell>
+                      Each exact forecast is scored after its full forward
+                      window becomes observable.
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -525,10 +672,12 @@ export default function HelpPage() {
               <CardTitle className="text-base">How to read a winner</CardTitle>
             </CardHeader>
             <CardContent className="text-sm leading-relaxed text-muted-foreground">
-              Lower MAE and QLIKE are better, but a candidate must also avoid excessive
-              undercoverage and persistent upward bias. A short-horizon winner is not automatically
-              a long-horizon winner because those outcomes mature later. The experiment remains
-              internal until a versioned, evidence-backed manual preview policy is recorded.
+              Lower MAE and QLIKE are better, but a candidate must also avoid
+              excessive undercoverage and persistent upward bias. A
+              short-horizon winner is not automatically a long-horizon winner
+              because those outcomes mature later. The experiment remains
+              internal until a versioned, evidence-backed manual preview policy
+              is recorded.
             </CardContent>
           </Card>
         </TabsContent>

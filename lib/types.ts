@@ -22,10 +22,7 @@ export type RegimeLabel = (typeof REGIME_LABELS)[number];
 
 export type TrendSignal = "RISING" | "FLAT" | "FALLING";
 export type CompositeSignal =
-  | "STRONG_RISING"
-  | "STRONG_FALLING"
-  | "FLAT"
-  | "MIXED_SIGNAL";
+  "STRONG_RISING" | "STRONG_FALLING" | "FLAT" | "MIXED_SIGNAL";
 export type BacktestStatus = "PASS" | "ACCEPTABLE" | "FAIL";
 
 // --- Sectioned per-pair payload ------------------------------------------
@@ -203,10 +200,7 @@ export type ResearchBrief = {
 };
 
 export type ValidationStatus =
-  | "supports"
-  | "partially_supports"
-  | "contradicts"
-  | "insufficient_evidence";
+  "supports" | "partially_supports" | "contradicts" | "insufficient_evidence";
 
 export type RecommendedAction =
   | "accept_deterministic_read"
@@ -215,24 +209,13 @@ export type RecommendedAction =
   | "rerun_with_deeper_research";
 
 export type MarketSentiment =
-  | "volatility_dampening"
-  | "volatility_amplifying"
-  | "mixed"
-  | "unclear";
+  "volatility_dampening" | "volatility_amplifying" | "mixed" | "unclear";
 
 export type TrendAdjustmentDirection =
-  | "increase"
-  | "decrease"
-  | "hold"
-  | "insufficient_evidence";
+  "increase" | "decrease" | "hold" | "insufficient_evidence";
 
 export type ValidationRunSource =
-  | "scheduled"
-  | "manual"
-  | "backfill"
-  | "experiment"
-  | "test"
-  | "unknown";
+  "scheduled" | "manual" | "backfill" | "experiment" | "test" | "unknown";
 
 export type TrendAwareMultiplierMap = {
   tenor_le_14d: number;
@@ -589,9 +572,7 @@ export type MLMultiplierLabResponse = {
 };
 
 export type MaturityRiskCandidateType =
-  | "rule_based"
-  | "historical_ml"
-  | "news_adjusted";
+  "rule_based" | "historical_ml" | "news_adjusted";
 
 export type MaturityRiskForecast = {
   id: string;
@@ -613,6 +594,7 @@ export type MaturityRiskForecast = {
   is_canonical: boolean;
   evaluation_status: "pending" | "scored" | "invalid";
   evaluation_reason: string | null;
+  source_payload?: Record<string, unknown> | null;
   generated_at: string;
 };
 

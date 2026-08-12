@@ -16,13 +16,7 @@ import {
   ArrowUpIcon,
   XIcon,
 } from "lucide-react";
-import {
-  CartesianGrid,
-  Bar,
-  BarChart,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Bar, BarChart, XAxis, YAxis } from "recharts";
 
 import { TablePagination } from "@/components/regime/table-pagination";
 import {
@@ -30,7 +24,11 @@ import {
   chartTooltipColor,
 } from "@/components/regime/chart-tooltip-row";
 import { Button } from "@/components/ui/button";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { DatePickerNaturalLanguage } from "@/components/ui/date-picker-natural-language";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,7 +39,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { TimePickerIcon } from "@/components/ui/time-picker-icon";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
@@ -75,7 +80,9 @@ type Scope = "canonical" | "all";
 type MemoryScope = "all" | "with_memory" | "without_memory";
 
 function average(values: number[]) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  return values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : 0;
 }
 
 function formatVol(value: number, digits = 2) {
@@ -95,9 +102,7 @@ function applyTime(value: Date, time: string) {
 
 function benchmarkEvaluationTime(row: BenchmarkResult) {
   const parsed = new Date(
-    row.evaluated_at ||
-      row.evaluation_market_date ||
-      row.maturity_date,
+    row.evaluated_at || row.evaluation_market_date || row.maturity_date,
   );
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -145,16 +150,30 @@ function balancedDirectionAccuracy(rows: BenchmarkResult[]) {
   const rates = directions
     .map((direction) => rows.filter((row) => row.llm_direction === direction))
     .filter((group) => group.length > 0)
-    .map((group) => group.filter((row) => row.direction_hit).length / group.length);
+    .map(
+      (group) => group.filter((row) => row.direction_hit).length / group.length,
+    );
   return rates.length ? average(rates) : 0;
 }
 
-function Metric({ label, value, hint }: { label: string; value: string; hint: string }) {
+function Metric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
   return (
     <div className="min-w-0 border-r border-border/70 px-4 py-3 last:border-r-0">
-      <p className="text-[11px] font-medium uppercase text-muted-foreground">{label}</p>
+      <p className="text-[11px] font-medium uppercase text-muted-foreground">
+        {label}
+      </p>
       <p className="mt-1 font-mono text-xl font-semibold">{value}</p>
-      <p className="mt-1 truncate text-xs text-muted-foreground" title={hint}>{hint}</p>
+      <p className="mt-1 truncate text-xs text-muted-foreground" title={hint}>
+        {hint}
+      </p>
     </div>
   );
 }
@@ -197,19 +216,26 @@ export function PerformanceLabV2({
   signalHorizonResults,
   statuses,
   validations,
+  view = "overlay",
 }: {
   results: BenchmarkResult[];
   signalHorizonResults: SignalHorizonBenchmarkResult[];
   statuses: BenchmarkEvaluationStatus[];
   validations: ValidationRun[];
+  view?: "overlay" | "experiments";
 }) {
   const methods = React.useMemo(
     () =>
-      [...new Set(results.map((row) => row.benchmark_method_version || "legacy_vol252d_v1"))]
-        .sort((left, right) => {
-          if (left === right) return 0;
-          return left === "tenor_matched_v2" ? -1 : 1;
-        }),
+      [
+        ...new Set(
+          results.map(
+            (row) => row.benchmark_method_version || "legacy_vol252d_v1",
+          ),
+        ),
+      ].sort((left, right) => {
+        if (left === right) return 0;
+        return left === "tenor_matched_v2" ? -1 : 1;
+      }),
     [results],
   );
   const [method, setMethod] = React.useState(methods[0] ?? "tenor_matched_v2");
@@ -222,16 +248,26 @@ export function PerformanceLabV2({
   const [memoryScope, setMemoryScope] = React.useState<MemoryScope>("all");
   const [regime, setRegime] = React.useState("all");
   const hasCanonical = results.some((row) => row.is_canonical);
-  const activeMethod = methods.includes(method) ? method : (methods[0] ?? method);
+  const activeMethod = methods.includes(method)
+    ? method
+    : (methods[0] ?? method);
   const validationById = React.useMemo(
     () => new Map(validations.map((run) => [run.id, run])),
     [validations],
   );
   const matchesMetadata = React.useCallback(
     (validationRunId: string | null) => {
-      const run = validationRunId ? validationById.get(validationRunId) : undefined;
+      const run = validationRunId
+        ? validationById.get(validationRunId)
+        : undefined;
       if (!run) {
-        return model === "all" && prompt === "all" && runSource === "all" && memoryScope === "all" && regime === "all";
+        return (
+          model === "all" &&
+          prompt === "all" &&
+          runSource === "all" &&
+          memoryScope === "all" &&
+          regime === "all"
+        );
       }
       const hasMemory = run.prior_validation_context.item_count > 0;
       return (
@@ -239,7 +275,8 @@ export function PerformanceLabV2({
         (prompt === "all" || run.prompt_version === prompt) &&
         (runSource === "all" || run.run_source === runSource) &&
         (regime === "all" || run.result.deterministic_regime === regime) &&
-        (memoryScope === "all" || (memoryScope === "with_memory" ? hasMemory : !hasMemory))
+        (memoryScope === "all" ||
+          (memoryScope === "with_memory" ? hasMemory : !hasMemory))
       );
     },
     [memoryScope, model, prompt, regime, runSource, validationById],
@@ -272,7 +309,15 @@ export function PerformanceLabV2({
           matchesMetadata(row.llm_validation_run_id)
         );
       }),
-    [activeMethod, hasCanonical, matchesMetadata, pair, scope, signalHorizonResults, tenor],
+    [
+      activeMethod,
+      hasCanonical,
+      matchesMetadata,
+      pair,
+      scope,
+      signalHorizonResults,
+      tenor,
+    ],
   );
 
   const filteredStatuses = statuses.filter(
@@ -286,10 +331,18 @@ export function PerformanceLabV2({
   const quantMae = average(filtered.map((row) => row.quant_abs_error));
   const llmMae = average(filtered.map((row) => row.llm_abs_error));
   const maeReduction = quantMae ? (quantMae - llmMae) / quantMae : 0;
-  const quantBias = average(filtered.map((row) => row.quant_implied_vol - row.realized_vol));
-  const llmBias = average(filtered.map((row) => row.llm_implied_vol - row.realized_vol));
-  const quantQlike = average(filtered.map((row) => qlikeLoss(row.quant_implied_vol, row.realized_vol)));
-  const llmQlike = average(filtered.map((row) => qlikeLoss(row.llm_implied_vol, row.realized_vol)));
+  const quantBias = average(
+    filtered.map((row) => row.quant_implied_vol - row.realized_vol),
+  );
+  const llmBias = average(
+    filtered.map((row) => row.llm_implied_vol - row.realized_vol),
+  );
+  const quantQlike = average(
+    filtered.map((row) => qlikeLoss(row.quant_implied_vol, row.realized_vol)),
+  );
+  const llmQlike = average(
+    filtered.map((row) => qlikeLoss(row.llm_implied_vol, row.realized_vol)),
+  );
   const qlikeLift = quantQlike - llmQlike;
   const quantUndercoverage = filtered.length
     ? filtered.filter((row) => row.quant_undercovered).length / filtered.length
@@ -299,8 +352,8 @@ export function PerformanceLabV2({
     : 0;
   const directionAccuracy = balancedDirectionAccuracy(filtered);
   const alwaysDecrease = filtered.length
-    ? filtered.filter((row) => row.realized_vol < row.quant_implied_vol * 0.95).length /
-      filtered.length
+    ? filtered.filter((row) => row.realized_vol < row.quant_implied_vol * 0.95)
+        .length / filtered.length
     : 0;
   const interval = clusterInterval(filtered);
 
@@ -371,10 +424,7 @@ export function PerformanceLabV2({
       : null;
     return experimentRuns.filter((run) => {
       const asOf = validationAsOfTime(run);
-      const searchable = [
-        run.experiment_id,
-        run.research_brief_hash,
-      ]
+      const searchable = [run.experiment_id, run.research_brief_hash]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -401,10 +451,14 @@ export function PerformanceLabV2({
     Boolean(experimentSearch.trim()) ||
     Boolean(experimentFromDate) ||
     Boolean(experimentToDate);
-  const experimentIds = uniqueCount(experimentRuns, (run) => run.experiment_id ?? run.id);
+  const experimentIds = uniqueCount(
+    experimentRuns,
+    (run) => run.experiment_id ?? run.id,
+  );
   const matchedExperiments = new Map<string, Set<string>>();
   for (const run of experimentRuns) {
-    const variants = matchedExperiments.get(run.experiment_id ?? "") ?? new Set<string>();
+    const variants =
+      matchedExperiments.get(run.experiment_id ?? "") ?? new Set<string>();
     if (run.experiment_variant) variants.add(run.experiment_variant);
     matchedExperiments.set(run.experiment_id ?? "", variants);
   }
@@ -413,7 +467,9 @@ export function PerformanceLabV2({
   ).length;
 
   const pairs = [...new Set(results.map((row) => row.pair_code))].sort();
-  const models = [...new Set(validations.map((run) => run.model_name).filter(Boolean))].sort();
+  const models = [
+    ...new Set(validations.map((run) => run.model_name).filter(Boolean)),
+  ].sort();
   const prompts = [
     ...new Set(
       validations
@@ -421,8 +477,12 @@ export function PerformanceLabV2({
         .filter((value): value is string => Boolean(value)),
     ),
   ].sort();
-  const runSources = [...new Set(validations.map((run) => run.run_source))].sort();
-  const regimes = [...new Set(validations.map((run) => run.result.deterministic_regime))].sort();
+  const runSources = [
+    ...new Set(validations.map((run) => run.run_source)),
+  ].sort();
+  const regimes = [
+    ...new Set(validations.map((run) => run.result.deterministic_regime)),
+  ].sort();
   const selectedRuns = [
     ...new Set(
       filtered
@@ -433,8 +493,9 @@ export function PerformanceLabV2({
     .map((id) => validationById.get(id))
     .filter((run): run is ValidationRun => Boolean(run));
   const decreaseShare = selectedRuns.length
-    ? selectedRuns.filter((run) => run.trend_adjustment_direction === "decrease").length /
-      selectedRuns.length
+    ? selectedRuns.filter(
+        (run) => run.trend_adjustment_direction === "decrease",
+      ).length / selectedRuns.length
     : 0;
   const flaggedRuns = selectedRuns.filter(
     (run) => run.result.output_quality_flags.length > 0,
@@ -443,7 +504,9 @@ export function PerformanceLabV2({
     scored: filteredStatuses.filter((row) => row.status === "scored").length,
     pending: filteredStatuses.filter((row) => row.status === "pending").length,
     invalid: filteredStatuses.filter((row) => row.status === "invalid").length,
-    notApplicable: filteredStatuses.filter((row) => row.status === "not_applicable").length,
+    notApplicable: filteredStatuses.filter(
+      (row) => row.status === "not_applicable",
+    ).length,
     rolled: filtered.filter((row) => row.maturity_rolled).length,
   };
   const [outcomeSorting, setOutcomeSorting] = React.useState<SortingState>([
@@ -460,10 +523,7 @@ export function PerformanceLabV2({
     [filtered],
   );
   const outcomeTenors = React.useMemo(
-    () =>
-      TENORS.filter((key) =>
-        filtered.some((row) => row.tenor_key === key),
-      ),
+    () => TENORS.filter((key) => filtered.some((row) => row.tenor_key === key)),
     [filtered],
   );
   const outcomeDateBounds = React.useMemo(() => {
@@ -516,7 +576,9 @@ export function PerformanceLabV2({
           />
         ),
         cell: ({ row }) => (
-          <span className="font-mono font-medium">{row.original.pair_code}</span>
+          <span className="font-mono font-medium">
+            {row.original.pair_code}
+          </span>
         ),
       },
       {
@@ -683,9 +745,8 @@ export function PerformanceLabV2({
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: 10 } },
   });
-  const [experimentSorting, setExperimentSorting] = React.useState<SortingState>([
-    { id: "as_of_date", desc: true },
-  ]);
+  const [experimentSorting, setExperimentSorting] =
+    React.useState<SortingState>([{ id: "as_of_date", desc: true }]);
   const experimentColumns = React.useMemo<ColumnDef<ValidationRun>[]>(
     () => [
       {
@@ -698,7 +759,9 @@ export function PerformanceLabV2({
           />
         ),
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.experiment_id}</span>
+          <span className="font-mono text-xs">
+            {row.original.experiment_id}
+          </span>
         ),
       },
       {
@@ -711,7 +774,9 @@ export function PerformanceLabV2({
           />
         ),
         cell: ({ row }) => (
-          <span className="font-mono font-medium">{row.original.pair_code}</span>
+          <span className="font-mono font-medium">
+            {row.original.pair_code}
+          </span>
         ),
       },
       {
@@ -785,515 +850,801 @@ export function PerformanceLabV2({
 
   return (
     <div className="space-y-5">
-      <section className="border-y bg-card/30">
-        <div className="flex flex-wrap items-end gap-3 px-4 py-3">
-          <div className="mr-auto">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">Evaluation cohort</p>
-            <p className="mt-1 text-sm">One method and one canonical production run per pair/date by default.</p>
-          </div>
-          <Select value={activeMethod} onValueChange={setMethod}>
-            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
-            <SelectContent>{methods.map((item) => <SelectItem key={item} value={item}>{methodLabel(item)}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={pair} onValueChange={setPair}>
-            <SelectTrigger className="w-[130px]"><SelectValue placeholder="All pairs" /></SelectTrigger>
-            <SelectContent><SelectItem value="all">All pairs</SelectItem>{pairs.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={tenor} onValueChange={setTenor}>
-            <SelectTrigger className="w-[130px]"><SelectValue placeholder="All tenors" /></SelectTrigger>
-            <SelectContent><SelectItem value="all">All tenors</SelectItem>{TENORS.map((item) => <SelectItem key={item} value={item}>{TENOR_LABELS[item]}</SelectItem>)}</SelectContent>
-          </Select>
-          <ToggleGroup type="single" value={scope} onValueChange={(value) => value && setScope(value as Scope)} variant="outline">
-            <ToggleGroupItem value="canonical">Canonical</ToggleGroupItem>
-            <ToggleGroupItem value="all">All runs</ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-        <div className="grid gap-2 border-t px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Select value={model} onValueChange={setModel}>
-            <SelectTrigger className="w-full min-w-0" title={model === "all" ? "All scorer models" : model}><SelectValue placeholder="All scorer models" /></SelectTrigger>
-            <SelectContent><SelectItem value="all">All scorer models</SelectItem>{models.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={prompt} onValueChange={setPrompt}>
-            <SelectTrigger className="w-full min-w-0" title={prompt === "all" ? "All prompt versions" : prompt}><SelectValue placeholder="All prompt versions" /></SelectTrigger>
-            <SelectContent><SelectItem value="all">All prompt versions</SelectItem>{prompts.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={memoryScope} onValueChange={(value) => setMemoryScope(value as MemoryScope)}>
-            <SelectTrigger className="w-full min-w-0"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="all">All memory modes</SelectItem><SelectItem value="with_memory">Prior reads used</SelectItem><SelectItem value="without_memory">No prior reads</SelectItem></SelectContent>
-          </Select>
-          <Select value={runSource} onValueChange={setRunSource}>
-            <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="All run sources" /></SelectTrigger>
-            <SelectContent><SelectItem value="all">All run sources</SelectItem>{runSources.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={regime} onValueChange={setRegime}>
-            <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="All regimes" /></SelectTrigger>
-            <SelectContent><SelectItem value="all">All regimes</SelectItem>{regimes.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-2 border-y bg-card/20 md:grid-cols-4 xl:grid-cols-8">
-        <Metric label="Quant MAE" value={filtered.length ? formatVol(quantMae) : "--"} hint="Mean absolute volatility error" />
-        <Metric label="LLM MAE" value={filtered.length ? formatVol(llmMae) : "--"} hint="Shadow overlay error" />
-        <Metric label="MAE reduction" value={filtered.length ? formatPercent(maeReduction) : "--"} hint="Positive means LLM improved" />
-        <Metric label="QLIKE lift" value={filtered.length ? qlikeLift.toFixed(3) : "--"} hint="Positive means better variance calibration" />
-        <Metric label="Balanced direction" value={filtered.length ? formatPercent(directionAccuracy) : "--"} hint={`Always-decrease baseline ${formatPercent(alwaysDecrease)}`} />
-        <Metric label="Undercoverage Δ" value={filtered.length ? formatPercent(llmUndercoverage - quantUndercoverage) : "--"} hint="Negative means LLM undercovered less often" />
-        <Metric label="Quant bias" value={filtered.length ? formatVol(quantBias) : "--"} hint="Positive means overforecast" />
-        <Metric label="LLM bias" value={filtered.length ? formatVol(llmBias) : "--"} hint="Positive means overforecast" />
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="border p-4">
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <div><h2 className="text-base font-semibold">Fixed-tenor forecast error</h2><p className="text-sm text-muted-foreground">Quant and LLM error by exposure tenor</p></div>
-            <span className="font-mono text-xs text-muted-foreground">{filtered.length} rows · {uniqueCount(filtered, (row) => row.llm_validation_run_id ?? row.id)} runs</span>
-          </div>
-          <ChartContainer config={{ quant: { label: "Quant", color: "var(--chart-4)" }, llm: { label: "LLM", color: "var(--chart-1)" } }} className="h-[280px] w-full">
-            <BarChart data={chartRows}><CartesianGrid vertical={false} /><XAxis dataKey="tenor" tickLine={false} axisLine={false} /><YAxis tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}`} width={34} tickLine={false} axisLine={false} /><ChartTooltip content={<ChartTooltipContent formatter={(value, name, item) => <ChartTooltipRow color={chartTooltipColor(item)} label={name === "quant" ? "Quant" : "LLM recommendation"} value={formatVol(Number(value))} />} />} /><Bar dataKey="quant" fill="var(--color-quant)" radius={3} /><Bar dataKey="llm" fill="var(--color-llm)" radius={3} /></BarChart>
-          </ChartContainer>
-        </div>
-        <div className="border p-4">
-          <h2 className="text-base font-semibold">Cohort integrity</h2>
-          <p className="text-sm text-muted-foreground">Independent samples and evaluator health</p>
-          <dl className="mt-4 divide-y text-sm">
-            {[
-              ["Validation runs", uniqueCount(filtered, (row) => row.llm_validation_run_id ?? row.id)],
-              ["Pair/date observations", uniqueCount(filtered, (row) => `${row.pair_code}:${row.as_of_date}`)],
-              ["Market dates", uniqueCount(filtered, (row) => row.as_of_date)],
-              ["Scored candidates", health.scored || filtered.length],
-              ["Pending candidates", health.pending],
-              ["Invalid candidates", health.invalid],
-              ["Not applicable", health.notApplicable],
-              ["Rolled maturities", health.rolled],
-            ].map(([label, value]) => <div key={String(label)} className="flex justify-between py-2.5"><dt className="text-muted-foreground">{label}</dt><dd className="font-mono font-medium">{value}</dd></div>)}
-          </dl>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-            <div className={cn("border p-2", decreaseShare > 0.8 && "border-amber-500/40 bg-amber-500/5")}>
-              <p className="text-muted-foreground">Decrease calls</p>
-              <p className="mt-1 font-mono text-base">{formatPercent(decreaseShare)}</p>
-            </div>
-            <div className={cn("border p-2", flaggedRuns > 0 && "border-amber-500/40 bg-amber-500/5")}>
-              <p className="text-muted-foreground">Quality-flagged runs</p>
-              <p className="mt-1 font-mono text-base">{flaggedRuns}</p>
-            </div>
-          </div>
-          <div className={cn("mt-4 border-l-2 px-3 py-2 text-sm", interval && interval.low > 0 ? "border-emerald-500 bg-emerald-500/5" : "border-amber-500 bg-amber-500/5")}>
-            {interval ? `Approximate date-clustered 95% lift interval: ${formatVol(interval.low)} to ${formatVol(interval.high)}.` : "At least two independent market dates are needed for an uncertainty interval."}
-          </div>
-        </div>
-      </section>
-
-      <section className="border">
-        <div className="border-b px-4 py-3"><h2 className="text-base font-semibold">Declared signal-life consistency</h2><p className="text-sm text-muted-foreground">Short-window overlay comparison, not long-tenor forecast accuracy</p></div>
-        <div className="grid grid-cols-2 md:grid-cols-4">
-          <Metric label="Independent runs" value={String(uniqueCount(filteredSignal, (row) => row.llm_validation_run_id ?? row.id))} hint={`${filteredSignal.length} correlated tenor rows`} />
-          <Metric label="LLM outperformed" value={filteredSignal.length ? formatPercent(filteredSignal.filter((row) => row.llm_outperformed_quant ?? row.signal_still_valid).length / filteredSignal.length) : "--"} hint="Equal or lower error than quant" />
-          <Metric label="Mean lift" value={filteredSignal.length ? formatVol(average(filteredSignal.map((row) => row.llm_lift))) : "--"} hint="During declared signal life" />
-          <Metric label="Memory reads" value={filteredSignal.length ? average(filteredSignal.map((row) => row.memory_item_count)).toFixed(1) : "--"} hint="Prior validations used per row" />
-        </div>
-      </section>
-
-      <section className="border">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 className="text-base font-semibold">Memory A/B collection</h2>
-            <p className="text-sm text-muted-foreground">
-              Same snapshot, model, and frozen research brief; only memory changes
-            </p>
-          </div>
-          <span className="font-mono text-xs text-muted-foreground">
-            {hasExperimentFilters
-              ? `${experimentRows.length} of ${experimentRuns.length} runs`
-              : `${experimentRuns.length} runs`}{" "}
-            · {completePairs} complete pairs · {experimentIds} experiments
-          </span>
-        </div>
-        {experimentRuns.length === 0 ? (
-          <p className="px-4 py-8 text-sm text-muted-foreground">
-            The paired experiment begins after the new Prefect deployment is applied.
-          </p>
-        ) : (
-          <>
-            <div className="border-b bg-muted/15 px-4 py-3">
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">
-                    Memory collection filters
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Find paired experiment runs without changing benchmark charts or KPIs.
-                  </p>
-                </div>
-                {hasExperimentFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setExperimentPair("all");
-                      setExperimentVariant("all");
-                      setExperimentSearch("");
-                      setExperimentFromDate(undefined);
-                      setExperimentToDate(undefined);
-                      experimentTable.setPageIndex(0);
-                    }}
-                  >
-                    <XIcon data-icon="inline-start" />
-                    Clear filters
-                  </Button>
-                )}
+      {view === "overlay" && (
+        <>
+          <section className="border-y bg-card/30">
+            <div className="flex flex-wrap items-end gap-3 px-4 py-3">
+              <div className="mr-auto">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Evaluation cohort
+                </p>
+                <p className="mt-1 text-sm">
+                  One method and one canonical production run per pair/date by
+                  default.
+                </p>
               </div>
-              <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[160px_160px_minmax(220px,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                    Currency pair
-                  </span>
-                  <Select
-                    value={experimentPair}
-                    onValueChange={(value) => {
-                      setExperimentPair(value);
-                      experimentTable.setPageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All pairs" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="all">All pairs</SelectItem>
-                        {experimentPairs.map((value) => (
-                          <SelectItem key={value} value={value}>
-                            {value}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                    Memory variant
-                  </span>
-                  <Select
-                    value={experimentVariant}
-                    onValueChange={(value) => {
-                      setExperimentVariant(value);
-                      experimentTable.setPageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All variants" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="all">All variants</SelectItem>
-                        {experimentVariants.map((value) => (
-                          <SelectItem key={value} value={value}>
-                            {value === "memory_on"
-                              ? "Memory on"
-                              : value === "memory_off"
-                                ? "Memory off"
-                                : value}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
-                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                    Experiment or brief
-                  </span>
-                  <Input
-                    value={experimentSearch}
-                    onChange={(event) => {
-                      setExperimentSearch(event.target.value);
-                      experimentTable.setPageIndex(0);
-                    }}
-                    placeholder="Search ID or brief hash"
-                    className="h-10 font-mono text-xs"
-                  />
-                </div>
-                <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
-                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                    As of from
-                  </span>
-                  <DatePickerNaturalLanguage
-                    value={experimentFromDate}
-                    min={experimentDateBounds.min}
-                    max={experimentToDate ?? experimentDateBounds.max}
-                    onChange={(value) => {
-                      setExperimentFromDate(value);
-                      experimentTable.setPageIndex(0);
-                    }}
-                    placeholder="e.g. two weeks ago"
-                  />
-                </div>
-                <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
-                  <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                    As of to
-                  </span>
-                  <DatePickerNaturalLanguage
-                    value={experimentToDate}
-                    min={experimentFromDate ?? experimentDateBounds.min}
-                    max={experimentDateBounds.max}
-                    onChange={(value) => {
-                      setExperimentToDate(value);
-                      experimentTable.setPageIndex(0);
-                    }}
-                    placeholder="e.g. today"
-                  />
-                </div>
-              </div>
-            </div>
-            <Table className="min-w-[880px]">
-              <TableHeader>
-                {experimentTable.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                    {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {experimentTable.getRowModel().rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={experimentColumns.length}
-                      className="h-24 text-center text-sm text-muted-foreground"
-                    >
-                      No memory experiment runs match the selected filters.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  experimentTable.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id}>
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-            <TablePagination
-              table={experimentTable}
-              itemLabel="experiment runs"
-              pageSizeOptions={[10, 20, 50]}
-            />
-          </>
-        )}
-      </section>
-
-      <section className="border">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 className="text-base font-semibold">Matured outcome tape</h2>
-            <p className="text-sm text-muted-foreground">
-              Row-level forecast errors summarized in the chart above
-            </p>
-          </div>
-          <span className="font-mono text-xs text-muted-foreground">
-            {hasOutcomeFilters
-              ? `${outcomeRows.length} of ${filtered.length}`
-              : filtered.length}{" "}
-            outcomes
-          </span>
-        </div>
-        <div className="border-b bg-muted/15 px-4 py-3">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <p className="text-xs font-semibold uppercase text-muted-foreground">
-                Outcome table filters
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Narrow the tape without changing the chart cohort.
-              </p>
-            </div>
-            {hasOutcomeFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setOutcomePair("all");
-                  setOutcomeTenor("all");
-                  setOutcomeFromDate(undefined);
-                  setOutcomeFromTime("00:00");
-                  setOutcomeToDate(undefined);
-                  setOutcomeToTime("23:59");
-                  outcomeTable.setPageIndex(0);
-                }}
-              >
-                <XIcon data-icon="inline-start" />
-                Clear filters
-              </Button>
-            )}
-          </div>
-          <div className="grid items-end gap-3 md:grid-cols-2 2xl:grid-cols-[160px_140px_minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                Currency pair
-              </span>
-              <Select
-                value={outcomePair}
-                onValueChange={(value) => {
-                  setOutcomePair(value);
-                  outcomeTable.setPageIndex(0);
-                }}
-              >
-                <SelectTrigger className="w-full">
+              <Select value={activeMethod} onValueChange={setMethod}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {methods.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {methodLabel(item)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={pair} onValueChange={setPair}>
+                <SelectTrigger className="w-[130px]">
                   <SelectValue placeholder="All pairs" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="all">All pairs</SelectItem>
-                    {outcomePairs.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {value}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                  <SelectItem value="all">All pairs</SelectItem>
+                  {pairs.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                Tenor
-              </span>
-              <Select
-                value={outcomeTenor}
-                onValueChange={(value) => {
-                  setOutcomeTenor(value);
-                  outcomeTable.setPageIndex(0);
-                }}
-              >
-                <SelectTrigger className="w-full">
+              <Select value={tenor} onValueChange={setTenor}>
+                <SelectTrigger className="w-[130px]">
                   <SelectValue placeholder="All tenors" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="all">All tenors</SelectItem>
-                    {outcomeTenors.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {TENOR_LABELS[value]}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                  <SelectItem value="all">All tenors</SelectItem>
+                  {TENORS.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {TENOR_LABELS[item]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <ToggleGroup
+                type="single"
+                value={scope}
+                onValueChange={(value) => value && setScope(value as Scope)}
+                variant="outline"
+              >
+                <ToggleGroupItem value="canonical">Canonical</ToggleGroupItem>
+                <ToggleGroupItem value="all">All runs</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            <div className="grid gap-2 border-t px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger
+                  className="w-full min-w-0"
+                  title={model === "all" ? "All scorer models" : model}
+                >
+                  <SelectValue placeholder="All scorer models" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All scorer models</SelectItem>
+                  {models.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={prompt} onValueChange={setPrompt}>
+                <SelectTrigger
+                  className="w-full min-w-0"
+                  title={prompt === "all" ? "All prompt versions" : prompt}
+                >
+                  <SelectValue placeholder="All prompt versions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All prompt versions</SelectItem>
+                  {prompts.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={memoryScope}
+                onValueChange={(value) => setMemoryScope(value as MemoryScope)}
+              >
+                <SelectTrigger className="w-full min-w-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All memory modes</SelectItem>
+                  <SelectItem value="with_memory">Prior reads used</SelectItem>
+                  <SelectItem value="without_memory">No prior reads</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={runSource} onValueChange={setRunSource}>
+                <SelectTrigger className="w-full min-w-0">
+                  <SelectValue placeholder="All run sources" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All run sources</SelectItem>
+                  {runSources.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={regime} onValueChange={setRegime}>
+                <SelectTrigger className="w-full min-w-0">
+                  <SelectValue placeholder="All regimes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All regimes</SelectItem>
+                  {regimes.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                Evaluated from
-              </span>
-              <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
-                <DatePickerNaturalLanguage
-                  value={outcomeFromDate}
-                  min={outcomeDateBounds.min}
-                  max={outcomeToDate ?? outcomeDateBounds.max}
-                  onChange={(value) => {
-                    setOutcomeFromDate(value);
-                    outcomeTable.setPageIndex(0);
-                  }}
-                  placeholder="e.g. two weeks ago"
-                />
-                <TimePickerIcon
-                  value={outcomeFromTime}
-                  onChange={(value) => {
-                    setOutcomeFromTime(value);
-                    outcomeTable.setPageIndex(0);
-                  }}
-                />
+          </section>
+
+          <section className="grid grid-cols-2 border-y bg-card/20 md:grid-cols-4 xl:grid-cols-8">
+            <Metric
+              label="Quant MAE"
+              value={filtered.length ? formatVol(quantMae) : "--"}
+              hint="Mean absolute volatility error"
+            />
+            <Metric
+              label="LLM MAE"
+              value={filtered.length ? formatVol(llmMae) : "--"}
+              hint="Shadow overlay error"
+            />
+            <Metric
+              label="MAE reduction"
+              value={filtered.length ? formatPercent(maeReduction) : "--"}
+              hint="Positive means LLM improved"
+            />
+            <Metric
+              label="QLIKE lift"
+              value={filtered.length ? qlikeLift.toFixed(3) : "--"}
+              hint="Positive means better variance calibration"
+            />
+            <Metric
+              label="Balanced direction"
+              value={filtered.length ? formatPercent(directionAccuracy) : "--"}
+              hint={`Always-decrease baseline ${formatPercent(alwaysDecrease)}`}
+            />
+            <Metric
+              label="Undercoverage Δ"
+              value={
+                filtered.length
+                  ? formatPercent(llmUndercoverage - quantUndercoverage)
+                  : "--"
+              }
+              hint="Negative means LLM undercovered less often"
+            />
+            <Metric
+              label="Quant bias"
+              value={filtered.length ? formatVol(quantBias) : "--"}
+              hint="Positive means overforecast"
+            />
+            <Metric
+              label="LLM bias"
+              value={filtered.length ? formatVol(llmBias) : "--"}
+              hint="Positive means overforecast"
+            />
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <div className="border p-4">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-semibold">
+                    Fixed-tenor forecast error
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Quant and LLM error by exposure tenor
+                  </p>
+                </div>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {filtered.length} rows ·{" "}
+                  {uniqueCount(
+                    filtered,
+                    (row) => row.llm_validation_run_id ?? row.id,
+                  )}{" "}
+                  runs
+                </span>
+              </div>
+              <ChartContainer
+                config={{
+                  quant: { label: "Quant", color: "var(--chart-4)" },
+                  llm: { label: "LLM", color: "var(--chart-1)" },
+                }}
+                className="h-[280px] w-full"
+              >
+                <BarChart data={chartRows}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="tenor" tickLine={false} axisLine={false} />
+                  <YAxis
+                    tickFormatter={(value) =>
+                      `${(Number(value) * 100).toFixed(0)}`
+                    }
+                    width={34}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name, item) => (
+                          <ChartTooltipRow
+                            color={chartTooltipColor(item)}
+                            label={
+                              name === "quant" ? "Quant" : "LLM recommendation"
+                            }
+                            value={formatVol(Number(value))}
+                          />
+                        )}
+                      />
+                    }
+                  />
+                  <Bar dataKey="quant" fill="var(--color-quant)" radius={3} />
+                  <Bar dataKey="llm" fill="var(--color-llm)" radius={3} />
+                </BarChart>
+              </ChartContainer>
+            </div>
+            <div className="border p-4">
+              <h2 className="text-base font-semibold">Cohort integrity</h2>
+              <p className="text-sm text-muted-foreground">
+                Independent samples and evaluator health
+              </p>
+              <dl className="mt-4 divide-y text-sm">
+                {[
+                  [
+                    "Validation runs",
+                    uniqueCount(
+                      filtered,
+                      (row) => row.llm_validation_run_id ?? row.id,
+                    ),
+                  ],
+                  [
+                    "Pair/date observations",
+                    uniqueCount(
+                      filtered,
+                      (row) => `${row.pair_code}:${row.as_of_date}`,
+                    ),
+                  ],
+                  [
+                    "Market dates",
+                    uniqueCount(filtered, (row) => row.as_of_date),
+                  ],
+                  ["Scored candidates", health.scored || filtered.length],
+                  ["Pending candidates", health.pending],
+                  ["Invalid candidates", health.invalid],
+                  ["Not applicable", health.notApplicable],
+                  ["Rolled maturities", health.rolled],
+                ].map(([label, value]) => (
+                  <div
+                    key={String(label)}
+                    className="flex justify-between py-2.5"
+                  >
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="font-mono font-medium">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div
+                  className={cn(
+                    "border p-2",
+                    decreaseShare > 0.8 && "border-amber-500/40 bg-amber-500/5",
+                  )}
+                >
+                  <p className="text-muted-foreground">Decrease calls</p>
+                  <p className="mt-1 font-mono text-base">
+                    {formatPercent(decreaseShare)}
+                  </p>
+                </div>
+                <div
+                  className={cn(
+                    "border p-2",
+                    flaggedRuns > 0 && "border-amber-500/40 bg-amber-500/5",
+                  )}
+                >
+                  <p className="text-muted-foreground">Quality-flagged runs</p>
+                  <p className="mt-1 font-mono text-base">{flaggedRuns}</p>
+                </div>
+              </div>
+              <div
+                className={cn(
+                  "mt-4 border-l-2 px-3 py-2 text-sm",
+                  interval && interval.low > 0
+                    ? "border-emerald-500 bg-emerald-500/5"
+                    : "border-amber-500 bg-amber-500/5",
+                )}
+              >
+                {interval
+                  ? `Approximate date-clustered 95% lift interval: ${formatVol(interval.low)} to ${formatVol(interval.high)}.`
+                  : "At least two independent market dates are needed for an uncertainty interval."}
               </div>
             </div>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                Evaluated to
+          </section>
+        </>
+      )}
+
+      {view === "experiments" && (
+        <>
+          <section className="border">
+            <div className="border-b px-4 py-3">
+              <h2 className="text-base font-semibold">
+                Declared signal-life consistency
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Short-window overlay comparison, not long-tenor forecast
+                accuracy
+              </p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4">
+              <Metric
+                label="Independent runs"
+                value={String(
+                  uniqueCount(
+                    filteredSignal,
+                    (row) => row.llm_validation_run_id ?? row.id,
+                  ),
+                )}
+                hint={`${filteredSignal.length} correlated tenor rows`}
+              />
+              <Metric
+                label="LLM outperformed"
+                value={
+                  filteredSignal.length
+                    ? formatPercent(
+                        filteredSignal.filter(
+                          (row) =>
+                            row.llm_outperformed_quant ??
+                            row.signal_still_valid,
+                        ).length / filteredSignal.length,
+                      )
+                    : "--"
+                }
+                hint="Equal or lower error than quant"
+              />
+              <Metric
+                label="Mean lift"
+                value={
+                  filteredSignal.length
+                    ? formatVol(
+                        average(filteredSignal.map((row) => row.llm_lift)),
+                      )
+                    : "--"
+                }
+                hint="During declared signal life"
+              />
+              <Metric
+                label="Memory reads"
+                value={
+                  filteredSignal.length
+                    ? average(
+                        filteredSignal.map((row) => row.memory_item_count),
+                      ).toFixed(1)
+                    : "--"
+                }
+                hint="Prior validations used per row"
+              />
+            </div>
+          </section>
+
+          <section className="border">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+              <div>
+                <h2 className="text-base font-semibold">
+                  Memory A/B collection
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Same snapshot, model, and frozen research brief; only memory
+                  changes
+                </p>
+              </div>
+              <span className="font-mono text-xs text-muted-foreground">
+                {hasExperimentFilters
+                  ? `${experimentRows.length} of ${experimentRuns.length} runs`
+                  : `${experimentRuns.length} runs`}{" "}
+                · {completePairs} complete pairs · {experimentIds} experiments
               </span>
-              <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
-                <DatePickerNaturalLanguage
-                  value={outcomeToDate}
-                  min={outcomeFromDate ?? outcomeDateBounds.min}
-                  max={outcomeDateBounds.max}
-                  onChange={(value) => {
-                    setOutcomeToDate(value);
+            </div>
+            {experimentRuns.length === 0 ? (
+              <p className="px-4 py-8 text-sm text-muted-foreground">
+                The paired experiment begins after the new Prefect deployment is
+                applied.
+              </p>
+            ) : (
+              <>
+                <div className="border-b bg-muted/15 px-4 py-3">
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">
+                        Memory collection filters
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Find paired experiment runs without changing benchmark
+                        charts or KPIs.
+                      </p>
+                    </div>
+                    {hasExperimentFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setExperimentPair("all");
+                          setExperimentVariant("all");
+                          setExperimentSearch("");
+                          setExperimentFromDate(undefined);
+                          setExperimentToDate(undefined);
+                          experimentTable.setPageIndex(0);
+                        }}
+                      >
+                        <XIcon data-icon="inline-start" />
+                        Clear filters
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[160px_160px_minmax(220px,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                        Currency pair
+                      </span>
+                      <Select
+                        value={experimentPair}
+                        onValueChange={(value) => {
+                          setExperimentPair(value);
+                          experimentTable.setPageIndex(0);
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All pairs" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="all">All pairs</SelectItem>
+                            {experimentPairs.map((value) => (
+                              <SelectItem key={value} value={value}>
+                                {value}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                        Memory variant
+                      </span>
+                      <Select
+                        value={experimentVariant}
+                        onValueChange={(value) => {
+                          setExperimentVariant(value);
+                          experimentTable.setPageIndex(0);
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All variants" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="all">All variants</SelectItem>
+                            {experimentVariants.map((value) => (
+                              <SelectItem key={value} value={value}>
+                                {value === "memory_on"
+                                  ? "Memory on"
+                                  : value === "memory_off"
+                                    ? "Memory off"
+                                    : value}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
+                      <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                        Experiment or brief
+                      </span>
+                      <Input
+                        value={experimentSearch}
+                        onChange={(event) => {
+                          setExperimentSearch(event.target.value);
+                          experimentTable.setPageIndex(0);
+                        }}
+                        placeholder="Search ID or brief hash"
+                        className="h-10 font-mono text-xs"
+                      />
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
+                      <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                        As of from
+                      </span>
+                      <DatePickerNaturalLanguage
+                        value={experimentFromDate}
+                        min={experimentDateBounds.min}
+                        max={experimentToDate ?? experimentDateBounds.max}
+                        onChange={(value) => {
+                          setExperimentFromDate(value);
+                          experimentTable.setPageIndex(0);
+                        }}
+                        placeholder="e.g. two weeks ago"
+                      />
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2 2xl:col-span-1">
+                      <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                        As of to
+                      </span>
+                      <DatePickerNaturalLanguage
+                        value={experimentToDate}
+                        min={experimentFromDate ?? experimentDateBounds.min}
+                        max={experimentDateBounds.max}
+                        onChange={(value) => {
+                          setExperimentToDate(value);
+                          experimentTable.setPageIndex(0);
+                        }}
+                        placeholder="e.g. today"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <Table className="min-w-[880px]">
+                  <TableHeader>
+                    {experimentTable.getHeaderGroups().map((headerGroup) => (
+                      <TableRow
+                        key={headerGroup.id}
+                        className="hover:bg-transparent"
+                      >
+                        {headerGroup.headers.map((header) => (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext(),
+                                )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {experimentTable.getRowModel().rows.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={experimentColumns.length}
+                          className="h-24 text-center text-sm text-muted-foreground"
+                        >
+                          No memory experiment runs match the selected filters.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      experimentTable.getRowModel().rows.map((row) => (
+                        <TableRow key={row.id}>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  table={experimentTable}
+                  itemLabel="experiment runs"
+                  pageSizeOptions={[10, 20, 50]}
+                />
+              </>
+            )}
+          </section>
+        </>
+      )}
+
+      {view === "overlay" && (
+        <section className="border">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+            <div>
+              <h2 className="text-base font-semibold">Matured outcome tape</h2>
+              <p className="text-sm text-muted-foreground">
+                Row-level forecast errors summarized in the chart above
+              </p>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground">
+              {hasOutcomeFilters
+                ? `${outcomeRows.length} of ${filtered.length}`
+                : filtered.length}{" "}
+              outcomes
+            </span>
+          </div>
+          <div className="border-b bg-muted/15 px-4 py-3">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Outcome table filters
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Narrow the tape without changing the chart cohort.
+                </p>
+              </div>
+              {hasOutcomeFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setOutcomePair("all");
+                    setOutcomeTenor("all");
+                    setOutcomeFromDate(undefined);
+                    setOutcomeFromTime("00:00");
+                    setOutcomeToDate(undefined);
+                    setOutcomeToTime("23:59");
                     outcomeTable.setPageIndex(0);
                   }}
-                  placeholder="e.g. today"
-                />
-                <TimePickerIcon
-                  value={outcomeToTime}
-                  onChange={(value) => {
-                    setOutcomeToTime(value);
+                >
+                  <XIcon data-icon="inline-start" />
+                  Clear filters
+                </Button>
+              )}
+            </div>
+            <div className="grid items-end gap-3 md:grid-cols-2 2xl:grid-cols-[160px_140px_minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                  Currency pair
+                </span>
+                <Select
+                  value={outcomePair}
+                  onValueChange={(value) => {
+                    setOutcomePair(value);
                     outcomeTable.setPageIndex(0);
                   }}
-                />
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All pairs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">All pairs</SelectItem>
+                      {outcomePairs.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                  Tenor
+                </span>
+                <Select
+                  value={outcomeTenor}
+                  onValueChange={(value) => {
+                    setOutcomeTenor(value);
+                    outcomeTable.setPageIndex(0);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All tenors" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">All tenors</SelectItem>
+                      {outcomeTenors.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {TENOR_LABELS[value]}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                  Evaluated from
+                </span>
+                <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
+                  <DatePickerNaturalLanguage
+                    value={outcomeFromDate}
+                    min={outcomeDateBounds.min}
+                    max={outcomeToDate ?? outcomeDateBounds.max}
+                    onChange={(value) => {
+                      setOutcomeFromDate(value);
+                      outcomeTable.setPageIndex(0);
+                    }}
+                    placeholder="e.g. two weeks ago"
+                  />
+                  <TimePickerIcon
+                    value={outcomeFromTime}
+                    onChange={(value) => {
+                      setOutcomeFromTime(value);
+                      outcomeTable.setPageIndex(0);
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-[11px] font-medium uppercase text-muted-foreground">
+                  Evaluated to
+                </span>
+                <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
+                  <DatePickerNaturalLanguage
+                    value={outcomeToDate}
+                    min={outcomeFromDate ?? outcomeDateBounds.min}
+                    max={outcomeDateBounds.max}
+                    onChange={(value) => {
+                      setOutcomeToDate(value);
+                      outcomeTable.setPageIndex(0);
+                    }}
+                    placeholder="e.g. today"
+                  />
+                  <TimePickerIcon
+                    value={outcomeToTime}
+                    onChange={(value) => {
+                      setOutcomeToTime(value);
+                      outcomeTable.setPageIndex(0);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <Table className="min-w-[1280px]">
-          <TableHeader>
-            {outcomeTable.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {outcomeTable.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={outcomeColumns.length}
-                  className="h-24 text-center text-sm text-muted-foreground"
-                >
-                  No matured outcomes match the selected cohort.
-                </TableCell>
-              </TableRow>
-            ) : (
-              outcomeTable.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
+          <Table className="min-w-[1280px]">
+            <TableHeader>
+              {outcomeTable.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          table={outcomeTable}
-          itemLabel="outcomes"
-          pageSizeOptions={[10, 20, 50]}
-        />
-      </section>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {outcomeTable.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={outcomeColumns.length}
+                    className="h-24 text-center text-sm text-muted-foreground"
+                  >
+                    No matured outcomes match the selected cohort.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                outcomeTable.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          <TablePagination
+            table={outcomeTable}
+            itemLabel="outcomes"
+            pageSizeOptions={[10, 20, 50]}
+          />
+        </section>
+      )}
     </div>
   );
 }
