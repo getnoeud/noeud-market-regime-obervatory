@@ -77,8 +77,10 @@ import {
 } from "@/lib/format";
 import {
   displayPairCode,
+  latestMatchedMaturityBenchmarks,
   MATURITY_RISK_CANDIDATES,
   maturityCandidateLabel,
+  maturityForecastProvider,
   OPERATIONAL_MATURITY_HORIZONS,
 } from "@/lib/maturity-risk";
 import type {
@@ -125,14 +127,6 @@ function average(values: number[]) {
 function preferredPair(pairs: string[], selected?: string) {
   if (selected && pairs.includes(selected)) return selected;
   return pairs.includes("USDGHS") ? "USDGHS" : (pairs[0] ?? "");
-}
-
-function providerForForecast(row: MaturityRiskForecast | undefined) {
-  const value =
-    row?.source_payload?.market_data_provider ??
-    row?.source_payload?.provider_name ??
-    row?.source_payload?.data_source;
-  return typeof value === "string" && value.trim() ? value : "unknown";
 }
 
 function providerLabel(value: string) {
@@ -241,11 +235,11 @@ function SortHeader({
     >
       {label}
       {sorted === "asc" ? (
-        <ArrowUpIcon />
+        <ArrowUpIcon className="size-3.5 shrink-0" />
       ) : sorted === "desc" ? (
-        <ArrowDownIcon />
+        <ArrowDownIcon className="size-3.5 shrink-0" />
       ) : (
-        <ArrowUpDownIcon className="opacity-40" />
+        <ArrowUpDownIcon className="size-3.5 shrink-0 opacity-40" />
       )}
     </button>
   );
@@ -286,7 +280,7 @@ export function OperationalPerformanceLab({
     () =>
       data.benchmarks.map((row) => ({
         ...row,
-        provider: providerForForecast(forecastById.get(row.forecast_id)),
+        provider: maturityForecastProvider(forecastById.get(row.forecast_id)),
       })),
     [data.benchmarks, forecastById],
   );
@@ -336,13 +330,13 @@ export function OperationalPerformanceLab({
     ? selectedSurface
     : latestSurface;
 
-  const activeCandidateVersions = React.useMemo(() => {
+  const servingCandidateVersions = React.useMemo(() => {
     const latest = new Map<MaturityRiskCandidateType, MaturityRiskForecast>();
     for (const row of data.forecasts) {
       if (
         row.pair_code !== pair ||
         row.surface_version !== surface ||
-        providerForForecast(row) !== provider
+        maturityForecastProvider(row) !== provider
       ) {
         continue;
       }
@@ -361,32 +355,13 @@ export function OperationalPerformanceLab({
     );
   }, [data.forecasts, pair, provider, surface]);
 
-  const cohortRows = React.useMemo(() => {
-    const versioned = providerRows.filter(
-      (row) =>
-        row.surface_version === surface &&
-        activeCandidateVersions.get(row.candidate_type) ===
-          row.candidate_version,
-    );
-    const candidatesByOutcome = new Map<
-      string,
-      Set<MaturityRiskCandidateType>
-    >();
-    for (const row of versioned) {
-      const candidates = candidatesByOutcome.get(outcomeKey(row)) ?? new Set();
-      candidates.add(row.candidate_type);
-      candidatesByOutcome.set(outcomeKey(row), candidates);
-    }
-    const complete = new Set(
-      [...candidatesByOutcome]
-        .filter(
-          ([, candidates]) =>
-            candidates.size === MATURITY_RISK_CANDIDATES.length,
-        )
-        .map(([key]) => key),
-    );
-    return versioned.filter((row) => complete.has(outcomeKey(row)));
-  }, [activeCandidateVersions, providerRows, surface]);
+  const cohortRows = React.useMemo(
+    () =>
+      latestMatchedMaturityBenchmarks(
+        providerRows.filter((row) => row.surface_version === surface),
+      ),
+    [providerRows, surface],
+  );
 
   const availableHorizons = OPERATIONAL_MATURITY_HORIZONS.filter((days) =>
     cohortRows.some((row) => row.horizon_days === days),
@@ -849,7 +824,8 @@ export function OperationalPerformanceLab({
               Evaluation cohort
             </p>
             <p className="mt-1 text-sm">
-              Exact calendar maturity · matched active candidate versions
+              Exact calendar maturity · complete matched outcomes across version
+              changes
             </p>
           </div>
           <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
@@ -909,7 +885,7 @@ export function OperationalPerformanceLab({
             <div
               key={candidate.key}
               className="flex min-w-0 items-center gap-2 text-xs"
-              title={activeCandidateVersions.get(candidate.key)}
+              title={servingCandidateVersions.get(candidate.key)}
             >
               <span
                 className="size-2 shrink-0 rounded-full"
@@ -917,7 +893,8 @@ export function OperationalPerformanceLab({
               />
               <span className="shrink-0 font-medium">{candidate.label}</span>
               <span className="min-w-0 truncate font-mono text-muted-foreground">
-                {activeCandidateVersions.get(candidate.key) ?? "unavailable"}
+                Serving now ·{" "}
+                {servingCandidateVersions.get(candidate.key) ?? "unavailable"}
               </span>
             </div>
           ))}
@@ -1039,73 +1016,79 @@ export function OperationalPerformanceLab({
           </div>
         </CardHeader>
         <CardContent>
-          <ChartContainer
-            config={performanceChartConfig}
-            className="h-[320px] w-full"
-          >
-            <LineChart
-              data={selectedHistory}
-              accessibilityLayer
-              margin={{ left: 8, right: 12 }}
+          {selectedHistory.length ? (
+            <ChartContainer
+              config={performanceChartConfig}
+              className="h-[320px] w-full"
             >
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                axisLine={false}
-                minTickGap={36}
-                tickFormatter={(value) => shortDate(String(value))}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                width={44}
-                tickFormatter={(value) => formatVol(Number(value), 0)}
-              />
-              <ChartLegend content={<ChartLegendContent />} />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value) => formatDate(String(value))}
-                    formatter={(value, name, item) => (
-                      <ChartTooltipRow
-                        color={chartTooltipColor(item)}
-                        label={
-                          name === "realized_vol"
-                            ? "Realized volatility"
-                            : maturityCandidateLabel(
-                                name as MaturityRiskCandidateType,
-                              )
-                        }
-                        value={formatVol(Number(value), 2)}
-                      />
-                    )}
+              <LineChart
+                data={selectedHistory}
+                accessibilityLayer
+                margin={{ left: 8, right: 12 }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={36}
+                  tickFormatter={(value) => shortDate(String(value))}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  width={44}
+                  tickFormatter={(value) => formatVol(Number(value), 0)}
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(value) => formatDate(String(value))}
+                      formatter={(value, name, item) => (
+                        <ChartTooltipRow
+                          color={chartTooltipColor(item)}
+                          label={
+                            name === "realized_vol"
+                              ? "Realized volatility"
+                              : maturityCandidateLabel(
+                                  name as MaturityRiskCandidateType,
+                                )
+                          }
+                          value={formatVol(Number(value), 2)}
+                        />
+                      )}
+                    />
+                  }
+                />
+                {MATURITY_RISK_CANDIDATES.map((candidate) => (
+                  <Line
+                    key={candidate.key}
+                    dataKey={candidate.key}
+                    name={candidate.label}
+                    stroke={`var(--color-${candidate.key})`}
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls
+                    isAnimationActive={false}
                   />
-                }
-              />
-              {MATURITY_RISK_CANDIDATES.map((candidate) => (
+                ))}
                 <Line
-                  key={candidate.key}
-                  dataKey={candidate.key}
-                  name={candidate.label}
-                  stroke={`var(--color-${candidate.key})`}
-                  strokeWidth={2}
+                  dataKey="realized_vol"
+                  name="Realized volatility"
+                  stroke="var(--color-realized_vol)"
+                  strokeWidth={2.5}
                   dot={false}
                   connectNulls
                   isAnimationActive={false}
                 />
-              ))}
-              <Line
-                dataKey="realized_vol"
-                name="Realized volatility"
-                stroke="var(--color-realized_vol)"
-                strokeWidth={2.5}
-                dot={false}
-                connectNulls
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ChartContainer>
+              </LineChart>
+            </ChartContainer>
+          ) : (
+            <div className="flex h-[220px] items-center justify-center border-y px-4 text-center text-sm text-muted-foreground">
+              This horizon has not produced a complete matched maturity yet.
+            </div>
+          )}
         </CardContent>
       </Card>
 
